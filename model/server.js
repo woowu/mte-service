@@ -1,7 +1,6 @@
 'use strict';
 
 const express = require('express');
-//const cors = require('cors');
 
 class Server {
     #app;
@@ -20,7 +19,6 @@ class Server {
     }
 
     #middlewares() {
-        //this.#app.use(cors());   /* enable CORS */
         this.#app.use(express.json());
     }
 

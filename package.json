@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "description": "",
   "main": "mte-service.js",
-  "start": "mte-service.js",
   "scripts": {
+    "start": "./mte-service.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

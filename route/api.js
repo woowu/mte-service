@@ -4,6 +4,6 @@ const { Router } = require('express');
 const  router = Router();
 const { getInstantaneous } = require('../controller/api');
 
-router.get('/getInstantaneous', getInstantaneous);
+router.get('/instantaneous', getInstantaneous);
 
 module.exports = router;
