@@ -6,7 +6,7 @@ const Mte = require('../model/Mte');
 const getInstantaneous = async (req, res = response) => {
     try {
         const mte = new Mte();
-        await mte.connect('localhost', 12345);
+        await mte.connect('localhost', 2404);
         res.json(await mte.readInstantaneous());
     } catch (e) {
         res.status(500).send(e.message);

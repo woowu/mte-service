@@ -1,34 +1,67 @@
 const net = require('node:net');
+const {
+    MessageReceiver,
+    commandCodes,
+    createConnectMsg,
+    createReadInstantaneousMsg,
+    DEFAULT_MTE_ADDR,
+} = require('../model/cl3013.js');
 
-module.exports = class Mte {
+const SELF_ADDR = 6;
+
+class Mte {
     #client;
-
-    constructor() {
-    }
+    #receiver;
 
     connect(host, port) {
         this.#client = new net.Socket();
 
+        this.#client.on('close', () => {
+            console.log('socket closed');
+            this.#receiver.end();
+        });
+
         return new Promise((resolve, reject) => {
             this.#client.connect(port, host, () => {
-                console.log('connected');
-                resolve();
+                console.log('socket connected');
+                this.#receiver = new MessageReceiver(this.#client, SELF_ADDR);
+                this.#receiver.start();
+                this.#exchangeMsg(createConnectMsg(SELF_ADDR, DEFAULT_MTE_ADDR))
+                    .then(resp => {
+                        resolve();
+                    })
+                    .catch(reject);
             });
         });
     }
 
+    disconnect() {
+        this.client.destroy();
+    }
+
     readInstantaneous() {
         return new Promise((resolve, reject) => {
-            this.#client.write('read instantaneous');
-            this.#client.once('data', data => {
-                this.#client.destroy();
-                resolve({
-                    v: 2.41e8,
-                    i: 1.2345e6,
-                    p: 6.321e6,
-                    q: 1.221e3,
-                });
-            });
+            this.#exchangeMsg(createReadInstantaneousMsg(
+                SELF_ADDR, DEFAULT_MTE_ADDR))
+                .then(resolve)
+                .catch(reject);
         });
     }
-};
+
+    #exchangeMsg(req, timeout=3000) {
+        return new Promise((resolve, reject) => {
+            const timer = setTimeout(() => {
+                reject(new Error('request timeout'));
+            }, timeout);
+            this.#receiver.once('message', resp => {
+                console.log('exchange: received', resp);
+                clearTimeout(timer);
+                resolve(resp);
+            });
+            console.log('exchange: send req', req);
+            this.#client.write(req);
+        });
+    }
+}
+
+module.exports = Mte;
