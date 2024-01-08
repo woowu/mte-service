@@ -43,7 +43,9 @@ class Mte {
         return new Promise((resolve, reject) => {
             this.#exchangeMsg(createReadInstantaneousMsg(
                 SELF_ADDR, DEFAULT_MTE_ADDR))
-                .then(resolve)
+                .then(resp => {
+                    resolve(resp.data);
+                })
                 .catch(reject);
         });
     }

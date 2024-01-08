@@ -317,16 +317,16 @@ exports.createReadInstantaneousResp = function(sender, receiver, value) {
     const p = new Array(PHASE_NUM + 1);
     for (var l = 0; l < p.length; ++l) {
         p[l] = encodeInt4e1(value.p !== undefined && value.p[l] !== undefined
-            ? value.p[0] : 0,
+            ? value.p[l][0] : 0,
             value.p !== undefined && value.p[l] !== undefined
-            ? value.p[1] : 0);
+            ? value.p[l][1] : 0);
     }
     const q = new Array(PHASE_NUM + 1);
     for (var l = 0; l < q.length; ++l) {
         q[l] = encodeInt4e1(value.q !== undefined && value.q[l] !== undefined
-            ? value.q[0] : 0,
+            ? value.q[l][0] : 0,
             value.q !== undefined && value.q[l] !== undefined
-            ? value.q[1] : 0);
+            ? value.q[l][1] : 0);
     }
 
     const nouse4 = Buffer.from([0x0f]);
