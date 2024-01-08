@@ -5,6 +5,7 @@
   "main": "mte-service.js",
   "scripts": {
     "start": "./mte-service.js",
+    "mte": "./test/kelu-mte.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

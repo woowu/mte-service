@@ -321,6 +321,7 @@ exports.createReadInstantaneousResp = function(sender, receiver, value) {
             value.p !== undefined && value.p[l] !== undefined
             ? value.p[l][1] : 0);
     }
+    console.log('p3', value.p[2], p[2]);
     const q = new Array(PHASE_NUM + 1);
     for (var l = 0; l < q.length; ++l) {
         q[l] = encodeInt4e1(value.q !== undefined && value.q[l] !== undefined
