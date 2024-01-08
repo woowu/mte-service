@@ -17,16 +17,43 @@ function calcMsgChecksum(msg) {
 }
 
 /**
- * @param n A 32-bit integer
- * @param scaler from -128 to 127
- * @return A 5-octet buffer representing a Int4e1 number
+ * @param m significant of 32-bit integer
+ * @param n exponent from -128 to 127
+ * @return A 5-octet buffer representing a Int4e1 number which is
+ *   a 4-bytes little-endian integer of significant followed by
+ *   one-byte exponent.
  */
-function encodeInt4e1(n, scaler) {
-    const m = new ArrayBuffer(4);
-    const s = new ArrayBuffer(1);
-    new DataView(m).setInt32(0, n, true);
-    new DataView(s).setInt8(0, scaler);
-    return Buffer.concat([Buffer.from(m), Buffer.from(s)]);
+function encodeInt4e1(m, n) {
+    const mm = new ArrayBuffer(4);
+    const nn = new ArrayBuffer(1);
+    new DataView(mm).setInt32(0, m, true);
+    new DataView(nn).setInt8(0, n);
+    return Buffer.concat([Buffer.from(mm), Buffer.from(nn)]);
+}
+
+/**
+ * @data Int4e1 encoded floating number
+ * @return { m: significant, n: exponent }
+ */
+function decodeInt4e1(data) {
+    return {
+        m: new DataView(
+            data.buffer.slice(data.byteOffset, data.byteOffset + 4)
+            ).getInt32(0, true),
+        n: data[4],
+    };
+}
+
+function decodeUint32(data) {
+    return new DataView(
+        data.buffer.slice(data.byteOffset, data.byteOffset + 4)
+    ).getUint32(0, true);
+}
+
+function decodeInt32(data) {
+    return new DataView(
+        data.buffer.slice(data.byteOffset, data.byteOffset + 4)
+    ).getInt32(0, true);
 }
 
 /**
@@ -43,6 +70,88 @@ function compositeMsg(msg) {
     if (msg.payload) buf.push(...msg.payload);
     buf.push(calcMsgChecksum(buf));
     return Buffer.from(buf);
+}
+
+function parseConnectResp(data)
+{
+    const copyString = (offset, maxLen) => {
+        var len = 0;
+        while (data[offset + len] && len < maxLen) ++len;
+        return data.slice(offset, offset + len).toString();
+    };
+    return {
+        protoVersion: copyString(0, 7),
+        devType: copyString(7, 11),
+        fwVersion: copyString(18, 5),
+        seqno: copyString(23, 12),
+    };
+}
+
+function parseReadInstantaneousResp(data)
+{
+    /* assume the first 3-bytes are always 0x02, 0x3d, 0xff */
+
+    const value = {};
+    value.v = [
+        decodeInt4e1(data.slice(13, 13 + 5)),
+        decodeInt4e1(data.slice(8, 8 + 5)),
+        decodeInt4e1(data.slice(3, 3 + 5)),
+    ];
+    value.i = [
+        decodeInt4e1(data.slice(28, 28 + 5)),
+        decodeInt4e1(data.slice(23, 23 + 5)),
+        decodeInt4e1(data.slice(18, 18 + 5)),
+    ];
+    value.freq = decodeUint32(data.slice(33, 33 + 4));
+    value.overloadFlag = data[37];
+    value.pf = [
+        decodeInt32(data.slice(84, 84 + 4)),
+        decodeInt32(data.slice(80, 80 + 4)),
+        decodeInt32(data.slice(76, 76 + 4)),
+        decodeInt32(data.slice(88, 88 + 4)), /* total pf */
+        decodeInt32(data.slice(92, 92 + 4)), /* total sin(phi) */
+    ];
+    value.p = [
+        decodeInt4e1(data.slice(107, 107 + 5)),
+        decodeInt4e1(data.slice(102, 102 + 5)),
+        decodeInt4e1(data.slice(97, 97 + 5)),
+        decodeInt4e1(data.slice(112, 112 + 5)), /* total p */
+    ];
+    value.q = [
+        decodeInt4e1(data.slice(127, 127 + 5)),
+        decodeInt4e1(data.slice(122, 122 + 5)),
+        decodeInt4e1(data.slice(117, 117 + 5)),
+        decodeInt4e1(data.slice(132, 132 + 5)), /* total q */
+    ];
+    value.s = [
+        decodeInt4e1(data.slice(148, 148 + 5)),
+        decodeInt4e1(data.slice(143, 143 + 5)),
+        decodeInt4e1(data.slice(138, 138 + 5)),
+        decodeInt4e1(data.slice(153, 153 + 5)), /* total s */
+    ];
+    return value;
+}
+
+function parseMessage(msg)
+{
+    const messageParsers = {
+        57: parseConnectResp,
+        80: parseReadInstantaneousResp,
+    };
+
+    var data = { raw: msg.slice(5, msg.length - 1) };
+    for (const [cmd, handler] of Object.entries(messageParsers)) {
+        if (cmd == msg[4]) {
+            data = handler(msg.slice(5, msg.length - 1));
+            break;
+        }
+    }
+    return {
+        cmd: msg[4],
+        senderAddr: msg[2],
+        receiverAddr: msg[1],
+        data,
+    };
 }
 
 /**
@@ -89,7 +198,7 @@ exports.MessageReceiver = class MessageReceiver extends EventEmitter {
             console.log(`receiver adddress mismatch: ${msg[1]},`
                 + ` expect ${this.#receiverAddr}`);
         else
-            super.emit('message', Buffer.from(msg));
+            super.emit('message', parseMessage(Buffer.from(msg)));
 
         this.#readTimer = setImmediate(() => {
             this.#readMessage();

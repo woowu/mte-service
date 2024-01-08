@@ -28,7 +28,7 @@ class Mte {
                 this.#receiver.start();
                 this.#exchangeMsg(createConnectMsg(SELF_ADDR, DEFAULT_MTE_ADDR))
                     .then(resp => {
-                        resolve();
+                        resolve(resp);
                     })
                     .catch(reject);
             });

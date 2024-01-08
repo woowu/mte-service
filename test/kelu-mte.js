@@ -15,6 +15,7 @@ const SERVER_PORT = 2404;
 
 function handleConnect(req, socket)
 {
+    console.log('connect mesasge data', req.data);
     socket.write(createConnectResp(req.receiverAddr, req.senderAddr, {}));
 }
 
@@ -47,23 +48,17 @@ class Server {
     }
 
     #processMessage(msg) {
+        console.log('process message', msg);
         const reqCmdHandlers = {
             201: handleConnect,
             160: handleReadInstantaneous,
         };
 
-        const req = {
-            receiverAddr: msg[1],
-            senderAddr: msg[2],
-            cmd: msg[4],
-            data: msg.slice(5, msg.length - 1),
-        };
-
         var handlered = false;
         for (const [cmd, handler] of Object.entries(reqCmdHandlers)) {
-            if (cmd == req.cmd) {
-                console.log(`found command handler for ${req.cmd}`);
-                handler(req, this.#client);
+            if (cmd == msg.cmd) {
+                console.log(`found command handler for ${msg.cmd}`);
+                handler(msg, this.#client);
                 handlered = true;
                 break;
             }
