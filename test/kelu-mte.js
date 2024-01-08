@@ -15,14 +15,18 @@ const SERVER_PORT = 2404;
 
 function handleConnect(req, socket)
 {
-    console.log('connect mesasge data', req.data);
     socket.write(createConnectResp(req.receiverAddr, req.senderAddr, {}));
 }
 
 function handleReadInstantaneous(req, socket)
 {
     socket.write(createReadInstantaneousResp(req.receiverAddr, req.senderAddr,
-        {}));
+        {
+            v: [[239e6, -6]],
+            i: [[5.01e6, -6]],
+            p: [[239 * 5.01 * .707 * 1e6, -6]],
+            q: [[239 * 5.01 * .707 * 1e6, -6]],
+        }));
 }
 
 /*----------------------------------------------------------------------------*/
