@@ -6,10 +6,11 @@ const MSG_OVERHEAD = 6;
 const commandCodes = {
     CMD_CONNECT: 201,
     CMD_CONNECT_RESP: 57,
-    CMD_READ_INSTANTANEOUS: 160,
-    CMD_READ_INSTANTANEOUS_RESP: 80,
+    CMD_READ: 160,
+    CMD_READ_RESP: 80,
     CMD_SETUP_LOAD: 163,
-    CMD_SETUP_LOAD_ACK: 48,
+    CMD_WRITE_ACK: 48,
+    CMD_WRITE_NACK: 51,
 };
 const LINE_NUM = 3;
 
@@ -107,8 +108,6 @@ function parseConnectResp(data)
 
 function parseReadInstantaneousResp(data)
 {
-    /* assume the first 3-bytes are always 0x02, 0x3d, 0xff */
-
     const value = {};
     value.v = [
         decodeInt4e1(data.slice(13, 13 + 5)),
@@ -150,19 +149,32 @@ function parseReadInstantaneousResp(data)
     return value;
 }
 
-function parseSetupLoadResp(data, cmd)
+function parseReadResp(data)
+{
+    const selector = data.slice(0, 2);
+    if (selector.equals(Buffer.from([0x02, 0x3d])))
+        return parseReadInstantaneousResp(data);
+    return {
+        error: 'unknown selector in read response: '
+            + selector.toString('hex'),
+    };
+}
+
+function parseWriteResult(data, cmd)
 {
     console.log('001', cmd);
-    return { result: cmd == 48 ? 'success' : cmd == 51 ? 'failure' : cmd };
+    return { result: cmd == commandCodes.CMD_WRITE_ACK
+        ? 'success' : cmd == commandCodes.CMD_WRITE_NACK
+        ? 'failure' : cmd };
 }
 
 function parseMessage(msg)
 {
     const messageParsers = {
         57: parseConnectResp,
-        80: parseReadInstantaneousResp,
-        48: parseSetupLoadResp,
-        51: parseSetupLoadResp,
+        80: parseReadResp,
+        48: parseWriteResult,
+        51: parseWriteResult,
     };
 
     var data = { raw: msg.slice(5, msg.length - 1) };
@@ -260,19 +272,22 @@ exports.createConnectResp = function(sender, receiver, {
 };
 
 exports.createReadInstantaneousMsg = function(sender, receiver) {
+    const selector = Buffer.from([
+        0x02, 0x3d,
+    ]);
+    const masks = Buffer.from([
+        0xff, 0x3f, 0xff, 0xff, 0x0f,
+    ]);
     return compositeMsg({
         receiverAddr: receiver,
         senderAddr: sender,
-        cmd: commandCodes.CMD_READ_INSTANTANEOUS,
-        payload: Buffer.from([
-            0x02, 0x3d, 0xff,
-            0x3f, 0xff, 0xff, 0x0f,
-        ]),
+        cmd: commandCodes.CMD_READ,
+        payload: Buffer.concat([selector, masks]),
     });
 };
 
 exports.createReadInstantaneousResp = function(sender, receiver, value) {
-    const fixed = Buffer.from([0x02, 0x3d, 0xff]);
+    const selector = Buffer.from([0x02, 0x3d]);
     var a;
 
     const v = new Array(LINE_NUM);
@@ -299,8 +314,6 @@ exports.createReadInstantaneousResp = function(sender, receiver, value) {
         value.overloadFlag !== undefined ? value.overloadFlag : 0
     ]);
 
-    const nouse1 = Buffer.from([0x3f]);
-
     const vPhi = new Array(LINE_NUM);
     for (var l = 0; l < vPhi.length; ++l) {
         a = new ArrayBuffer(4);
@@ -317,8 +330,6 @@ exports.createReadInstantaneousResp = function(sender, receiver, value) {
             ? value.iPhi[l] : 0, true);
         iPhi[l] = Buffer.from(a);
     }
-
-    const nouse2 = Buffer.from([0xff]);
 
     const lPhi = new Array(LINE_NUM);
     for (var l = 0; l < lPhi.length; ++l) {
@@ -338,8 +349,6 @@ exports.createReadInstantaneousResp = function(sender, receiver, value) {
         pf[l] = Buffer.from(a);
     }
 
-    const nouse3 = Buffer.from([0xff]);
-
     const p = new Array(LINE_NUM + 1);
     for (var l = 0; l < p.length; ++l) {
         p[l] = encodeInt4e1(value.p !== undefined && value.p[l] !== undefined
@@ -347,7 +356,6 @@ exports.createReadInstantaneousResp = function(sender, receiver, value) {
             value.p !== undefined && value.p[l] !== undefined
             ? value.p[l][1] : 0);
     }
-    console.log('p3', value.p[2], p[2]);
     const q = new Array(LINE_NUM + 1);
     for (var l = 0; l < q.length; ++l) {
         q[l] = encodeInt4e1(value.q !== undefined && value.q[l] !== undefined
@@ -355,8 +363,6 @@ exports.createReadInstantaneousResp = function(sender, receiver, value) {
             value.q !== undefined && value.q[l] !== undefined
             ? value.q[l][1] : 0);
     }
-
-    const nouse4 = Buffer.from([0x0f]);
 
     const s = new Array(LINE_NUM + 1);
     for (var l = 0; l < s.length; ++l) {
@@ -369,33 +375,36 @@ exports.createReadInstantaneousResp = function(sender, receiver, value) {
     return compositeMsg({
         receiverAddr: receiver,
         senderAddr: sender,
-        cmd: commandCodes.CMD_READ_INSTANTANEOUS_RESP,
+        cmd: commandCodes.CMD_READ_RESP,
         payload: Buffer.concat([
-            fixed,
+            selector,
+
+            Buffer.from([0xff]),
             v[2], v[1], v[0],
             i[2], i[1], i[0],
             freq,
             overloadFlag,
-            nouse1,
+
+            Buffer.from([0x3f]),
             vPhi[2], vPhi[1], vPhi[0],
             iPhi[2], iPhi[1], iPhi[0],
-            nouse2,
+
+            Buffer.from([0xff]),
             lPhi[2], lPhi[1], lPhi[0],
             pf[2], pf[1], pf[0], pf[3], pf[4],
-            nouse3,
+
+            Buffer.from([0xff]),
             p[2], p[1], p[0], p[3],
             q[2], q[1], q[0], q[3],
-            nouse4,
+
+            Buffer.from([0x0f]),
             s[2], s[1], s[0], s[3],
         ]),
     });
 };
 
 exports.createSetupLoadMsg = function(sender, receiver, loadDef) {
-    const fixed = Buffer.from([0x05, 0x46, 0x3f]);
-    const nouse1 = Buffer.from([0xff]);
-    const nouse2 = Buffer.from([0x07]);
-    const auto = Buffer.from([0]);
+    const selector = Buffer.from([0x05, 0x46]);
     const freqFlag = loadDef.freq !== undefined  ? 7 : 0;
 
     var phaseMask = 0;
@@ -441,17 +450,20 @@ exports.createSetupLoadMsg = function(sender, receiver, loadDef) {
         senderAddr: sender,
         cmd: commandCodes.CMD_SETUP_LOAD,
         payload: Buffer.concat([
-            fixed,
+            selector,
+
+            Buffer.from([0x3f]),
             vPhi[2], vPhi[1], vPhi[0],
             iPhi[2], iPhi[1], iPhi[0],
-            nouse1,
+
+            Buffer.from([0xff]),
             v[2], v[1], v[0],
             i[2], i[1], i[0],
             freq,
             Buffer.from([freqFlag]),
-            nouse2,
-            Buffer.from([phaseMask, amplitudeMask]),
-            auto,
+
+            Buffer.from([0x07]),
+            Buffer.from([phaseMask, amplitudeMask, 0]),
         ]),
     });
 };
@@ -460,6 +472,6 @@ exports.createSetupLoadResp = function(sender, receiver, result) {
     return compositeMsg({
         receiverAddr: receiver,
         senderAddr: sender,
-        cmd: commandCodes.CMD_SETUP_LOAD_ACK,
+        cmd: commandCodes.CMD_WRITE_ACK,
     });
 };

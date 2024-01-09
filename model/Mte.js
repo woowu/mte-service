@@ -21,10 +21,16 @@ class Mte {
 
         this.#client.on('close', () => {
             console.log('mte socket closed');
-            this.#receiver.end();
+            if (this.#receiver) this.#receiver.end();
         });
 
         return new Promise((resolve, reject) => {
+            this.#client.on('error', err => {
+                console.log('socket error', err);
+                if (this.#receiver) this.#receiver.end();
+                reject(err);
+            });
+
             this.#client.connect(port, host, () => {
                 console.log('mte socket connected');
                 this.#receiver = new MessageReceiver(this.#client, SELF_ADDR);
