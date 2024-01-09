@@ -6,6 +6,7 @@ const {
     MessageReceiver,
     createConnectResp,
     createReadInstantaneousResp,
+    createSetupLoadResp,
     DEFAULT_MTE_ADDR,
 } = require('../model/cl3013.js');
 
@@ -45,6 +46,12 @@ function handleReadInstantaneous(req, socket)
         }));
 }
 
+function handleSetupLoad(req, socket)
+{
+    socket.write(createSetupLoadResp(req.receiverAddr, req.senderAddr,
+        true));
+}
+
 /*----------------------------------------------------------------------------*/
 
 class Server {
@@ -72,6 +79,7 @@ class Server {
         const reqCmdHandlers = {
             201: handleConnect,
             160: handleReadInstantaneous,
+            163: handleSetupLoad,
         };
 
         var handlered = false;
@@ -83,7 +91,7 @@ class Server {
                 break;
             }
         }
-        if (! handlered) console.log('no handler for request', req);
+        if (! handlered) console.log('no handler for command', msg.cmd);
     }
 }
 

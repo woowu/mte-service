@@ -1,4 +1,5 @@
 const EventEmitter = require('events');
+const dump = require('buffer-hexdump');
 
 const MESSAGE_START = 0x81;
 const MSG_OVERHEAD = 6;
@@ -7,7 +8,9 @@ const commandCodes = {
     CMD_CONNECT_RESP: 57,
     CMD_READ_INSTANTANEOUS: 160,
     CMD_READ_INSTANTANEOUS_RESP: 80,
+    CMD_SETUP_LOAD: 163,
 };
+const LINE_NUM = 3;
 
 /**
  * @param msg a buffer of message excluding the ending 'checksum' byte.
@@ -27,14 +30,26 @@ function encodeInt4e1(m, n) {
     const mm = new ArrayBuffer(4);
     const nn = new ArrayBuffer(1);
     new DataView(mm).setInt32(0, parseInt(m), true);
-    new DataView(nn).setInt8(0, n);
+    new DataView(nn).setInt8(0, parseInt(n));
     return Buffer.concat([Buffer.from(mm), Buffer.from(nn)]);
+}
+
+function encodeUint32(n) {
+    const nn = new ArrayBuffer(4);
+    new DataView(nn).setUint32(0, parseInt(n), true);
+    return Buffer.from(nn);
 }
 
 function decodeUint32(data) {
     return new DataView(
         data.buffer.slice(data.byteOffset, data.byteOffset + 4)
     ).getUint32(0, true);
+}
+
+function encodeInt32(n) {
+    const nn = new ArrayBuffer(4);
+    new DataView(nn).setInt32(0, parseInt(n), true);
+    return Buffer.from(nn);
 }
 
 function decodeInt32(data) {
@@ -134,11 +149,17 @@ function parseReadInstantaneousResp(data)
     return value;
 }
 
+function parseSetupLoadResp(data)
+{
+    return { result: data[0] == 48 ? 'success' : 'failure' };
+}
+
 function parseMessage(msg)
 {
     const messageParsers = {
         57: parseConnectResp,
         80: parseReadInstantaneousResp,
+        163: parseSetupLoadResp,
     };
 
     var data = { raw: msg.slice(5, msg.length - 1) };
@@ -155,6 +176,10 @@ function parseMessage(msg)
         data,
     };
 }
+
+/*----------------------------------------------------------------------------*/
+
+exports.DEFAULT_MTE_ADDR = 1;
 
 /**
  * @event message(msg) msg: a Buffer of received message
@@ -214,7 +239,7 @@ exports.createConnectMsg = function(sender, receiver) {
         senderAddr: sender,
         cmd: commandCodes.CMD_CONNECT,
     });
-}
+};
 
 exports.createConnectResp = function(sender, receiver, {
     protoVersion = '1', devType = '1', fwVersion = '1', seqno = '0'
@@ -229,7 +254,7 @@ exports.createConnectResp = function(sender, receiver, {
         cmd: commandCodes.CMD_CONNECT_RESP,
         payload: Buffer.from(payload),
     });
-}
+};
 
 exports.createReadInstantaneousMsg = function(sender, receiver) {
     return compositeMsg({
@@ -241,22 +266,20 @@ exports.createReadInstantaneousMsg = function(sender, receiver) {
             0x3f, 0xff, 0xff, 0x0f,
         ]),
     });
-}
+};
 
 exports.createReadInstantaneousResp = function(sender, receiver, value) {
-    const PHASE_NUM = 3;
+    const fixed = Buffer.from([0x02, 0x3d, 0xff]);
     var a;
 
-    const repeatReq = Buffer.from([0x02, 0x3d, 0xff]);
-
-    const v = new Array(PHASE_NUM);
+    const v = new Array(LINE_NUM);
     for (var l = 0; l < v.length; ++l) {
         v[l] = encodeInt4e1(value.v !== undefined && value.v[l] !== undefined
             ? value.v[l][0] : 0,
             value.v !== undefined && value.v[l] !== undefined
             ? value.v[l][1] : 0);
     }
-    const i = new Array(PHASE_NUM);
+    const i = new Array(LINE_NUM);
     for (var l = 0; l < i.length; ++l) {
         i[l] = encodeInt4e1(value.i !== undefined && value.i[l] !== undefined
             ? value.i[l][0] : 0,
@@ -275,7 +298,7 @@ exports.createReadInstantaneousResp = function(sender, receiver, value) {
 
     const nouse1 = Buffer.from([0x3f]);
 
-    const vPhi = new Array(PHASE_NUM);
+    const vPhi = new Array(LINE_NUM);
     for (var l = 0; l < vPhi.length; ++l) {
         a = new ArrayBuffer(4);
         new DataView(a).setUint32(0,
@@ -283,7 +306,7 @@ exports.createReadInstantaneousResp = function(sender, receiver, value) {
             ? value.vPhi[l] : 0, true);
         vPhi[l] = Buffer.from(a);
     }
-    const iPhi = new Array(PHASE_NUM);
+    const iPhi = new Array(LINE_NUM);
     for (var l = 0; l < iPhi.length; ++l) {
         a = new ArrayBuffer(4);
         new DataView(a).setUint32(0,
@@ -294,7 +317,7 @@ exports.createReadInstantaneousResp = function(sender, receiver, value) {
 
     const nouse2 = Buffer.from([0xff]);
 
-    const lPhi = new Array(PHASE_NUM);
+    const lPhi = new Array(LINE_NUM);
     for (var l = 0; l < lPhi.length; ++l) {
         a = new ArrayBuffer(4);
         new DataView(a).setUint32(0,
@@ -303,7 +326,7 @@ exports.createReadInstantaneousResp = function(sender, receiver, value) {
         lPhi[l] = Buffer.from(a);
     }
 
-    const pf = new Array(PHASE_NUM + 2);
+    const pf = new Array(LINE_NUM + 2);
     for (var l = 0; l < pf.length; ++l) {
         a = new ArrayBuffer(4);
         new DataView(a).setInt32(0,
@@ -314,7 +337,7 @@ exports.createReadInstantaneousResp = function(sender, receiver, value) {
 
     const nouse3 = Buffer.from([0xff]);
 
-    const p = new Array(PHASE_NUM + 1);
+    const p = new Array(LINE_NUM + 1);
     for (var l = 0; l < p.length; ++l) {
         p[l] = encodeInt4e1(value.p !== undefined && value.p[l] !== undefined
             ? value.p[l][0] : 0,
@@ -322,7 +345,7 @@ exports.createReadInstantaneousResp = function(sender, receiver, value) {
             ? value.p[l][1] : 0);
     }
     console.log('p3', value.p[2], p[2]);
-    const q = new Array(PHASE_NUM + 1);
+    const q = new Array(LINE_NUM + 1);
     for (var l = 0; l < q.length; ++l) {
         q[l] = encodeInt4e1(value.q !== undefined && value.q[l] !== undefined
             ? value.q[l][0] : 0,
@@ -332,7 +355,7 @@ exports.createReadInstantaneousResp = function(sender, receiver, value) {
 
     const nouse4 = Buffer.from([0x0f]);
 
-    const s = new Array(PHASE_NUM + 1);
+    const s = new Array(LINE_NUM + 1);
     for (var l = 0; l < s.length; ++l) {
         s[l] = encodeInt4e1(value.s !== undefined && value.s[l] !== undefined
             ? value.s[0] : 0,
@@ -345,7 +368,7 @@ exports.createReadInstantaneousResp = function(sender, receiver, value) {
         senderAddr: sender,
         cmd: commandCodes.CMD_READ_INSTANTANEOUS_RESP,
         payload: Buffer.concat([
-            repeatReq,
+            fixed,
             v[2], v[1], v[0],
             i[2], i[1], i[0],
             freq,
@@ -363,6 +386,78 @@ exports.createReadInstantaneousResp = function(sender, receiver, value) {
             s[2], s[1], s[0], s[3],
         ]),
     });
-}
+};
 
-exports.DEFAULT_MTE_ADDR = 1;
+exports.createSetupLoadMsg = function(sender, receiver, loadDef) {
+    const fixed = Buffer.from([0x05, 0x46, 0x3f]);
+    const nouse1 = Buffer.from([0xff]);
+    const nouse2 = Buffer.from([0x07]);
+    const auto = Buffer.from([0]);
+    const freqFlag = loadDef.freq !== undefined  ? 7 : 0;
+
+    var phaseMask = 0;
+    const vPhi = new Array(LINE_NUM);
+    for (var l = 0; l < vPhi.length; ++l) {
+        if (loadDef.vPhi && loadDef.vPhi[l] !== null) {
+            vPhi[l] = encodeUint32(loadDef.vPhi[l]);
+            phaseMask |= 1 << (vPhi.length - 1) - l
+        } else
+            vPhi[l] = encodeUint32(0);
+    }
+    const iPhi = new Array(LINE_NUM);
+    for (var l = 0; l < iPhi.length; ++l) {
+        if (loadDef.iPhi && loadDef.iPhi[l] !== null) {
+            iPhi[l] = encodeUint32(loadDef.iPhi[l]);
+            phaseMask |= 8 << (iPhi.length - 1) - l
+        } else
+            iPhi[l] = encodeUint32(0);
+    }
+
+    var amplitudeMask = 0;
+    const v = new Array(LINE_NUM);
+    for (var l = 0; l < v.length; ++l) {
+        if (loadDef.v && loadDef.v[l] !== null) {
+            v[l] = encodeInt4e1(loadDef.v[l][0], loadDef.v[l][1]);
+            amplitudeMask |= 1 << (v.length - 1) - l
+        } else
+            v[l] = encodeInt4e1(0, 0);
+    }
+    const i = new Array(LINE_NUM);
+    for (var l = 0; l < i.length; ++l) {
+        if (loadDef.i && loadDef.i[l] !== null) {
+            i[l] = encodeInt4e1(loadDef.i[l][0], loadDef.i[l][1]);
+            amplitudeMask |= 8 << (v.length - 1) - l
+        } else
+            i[l] = encodeInt4e1(0, 0);
+    }
+
+    const freq = encodeUint32(loadDef.freq !== undefined ? loadDef.freq : 0);
+
+    return compositeMsg({
+        receiverAddr: receiver,
+        senderAddr: sender,
+        cmd: commandCodes.CMD_SETUP_LOAD,
+        payload: Buffer.concat([
+            fixed,
+            vPhi[2], vPhi[1], vPhi[0],
+            iPhi[2], iPhi[1], iPhi[0],
+            nouse1,
+            v[2], v[1], v[0],
+            i[2], i[1], i[0],
+            freq,
+            Buffer.from([freqFlag]),
+            nouse2,
+            Buffer.from([phaseMask, amplitudeMask]),
+            auto,
+        ]),
+    });
+};
+
+exports.createSetupLoadResp = function(sender, receiver, result) {
+    return compositeMsg({
+        receiverAddr: receiver,
+        senderAddr: sender,
+        cmd: commandCodes.CMD_SETUP_LOAD,
+        payload: Buffer.from([result ? 48 : 51]),
+    });
+};
