@@ -9,6 +9,7 @@ const commandCodes = {
     CMD_READ_INSTANTANEOUS: 160,
     CMD_READ_INSTANTANEOUS_RESP: 80,
     CMD_SETUP_LOAD: 163,
+    CMD_SETUP_LOAD_ACK: 48,
 };
 const LINE_NUM = 3;
 
@@ -149,9 +150,10 @@ function parseReadInstantaneousResp(data)
     return value;
 }
 
-function parseSetupLoadResp(data)
+function parseSetupLoadResp(data, cmd)
 {
-    return { result: data[0] == 48 ? 'success' : 'failure' };
+    console.log('001', cmd);
+    return { result: cmd == 48 ? 'success' : cmd == 51 ? 'failure' : cmd };
 }
 
 function parseMessage(msg)
@@ -159,13 +161,14 @@ function parseMessage(msg)
     const messageParsers = {
         57: parseConnectResp,
         80: parseReadInstantaneousResp,
-        163: parseSetupLoadResp,
+        48: parseSetupLoadResp,
+        51: parseSetupLoadResp,
     };
 
     var data = { raw: msg.slice(5, msg.length - 1) };
     for (const [cmd, handler] of Object.entries(messageParsers)) {
         if (cmd == msg[4]) {
-            data = handler(msg.slice(5, msg.length - 1));
+            data = handler(msg.slice(5, msg.length - 1), cmd);
             break;
         }
     }
@@ -457,7 +460,6 @@ exports.createSetupLoadResp = function(sender, receiver, result) {
     return compositeMsg({
         receiverAddr: receiver,
         senderAddr: sender,
-        cmd: commandCodes.CMD_SETUP_LOAD,
-        payload: Buffer.from([result ? 48 : 51]),
+        cmd: commandCodes.CMD_SETUP_LOAD_ACK,
     });
 };

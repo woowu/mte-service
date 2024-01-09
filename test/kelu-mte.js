@@ -2,6 +2,7 @@
 'use strict';
 
 const net = require('node:net');
+const dump = require('buffer-hexdump');
 const {
     MessageReceiver,
     createConnectResp,
@@ -16,12 +17,14 @@ const SERVER_PORT = 2404;
 
 function handleConnect(req, socket)
 {
-    socket.write(createConnectResp(req.receiverAddr, req.senderAddr, {}));
+    const resp = createConnectResp(req.receiverAddr, req.senderAddr, {});
+    console.log('send resposne:\n' + dump(resp));
+    socket.write(resp);
 }
 
 function handleReadInstantaneous(req, socket)
 {
-    socket.write(createReadInstantaneousResp(req.receiverAddr, req.senderAddr,
+    const resp = createReadInstantaneousResp(req.receiverAddr, req.senderAddr,
         {
             v: [
                 [239e6, -6],
@@ -43,13 +46,17 @@ function handleReadInstantaneous(req, socket)
                 [85035954, -5],
                 [237820000, -5],
             ],
-        }));
+        });
+    console.log('send resposne:\n' + dump(resp));
+    socket.write(resp);
 }
 
 function handleSetupLoad(req, socket)
 {
-    socket.write(createSetupLoadResp(req.receiverAddr, req.senderAddr,
-        true));
+    const msg = createSetupLoadResp(req.receiverAddr, req.senderAddr,
+        true);
+    console.log('send resposne:\n', dump(msg));
+    socket.write(msg);
 }
 
 /*----------------------------------------------------------------------------*/

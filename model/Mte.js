@@ -70,11 +70,11 @@ class Mte {
                 reject(new Error('request timeout'));
             }, timeout);
             this.#receiver.once('message', resp => {
-                console.log('exchange: received:\n' + dump(resp));
+                console.log('received resp:\n' + dump(resp));
                 clearTimeout(timer);
                 resolve(resp);
             });
-            console.log('exchange: send req:\n' + dump(req));
+            console.log('send req:\n' + dump(req));
             this.#client.write(req);
         });
     }
