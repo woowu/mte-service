@@ -22,7 +22,7 @@ exports.getInstantaneous = async function(req, res = response)
         console.log('instantaneous:', instant);
         res.json(instant);
     } catch (e) {
-        res.status(500).send(e.message);
+        res.status(500).send(e.stack);
     }
 };
 
@@ -37,6 +37,6 @@ exports.updateLoadDef = async function(req, res = response)
         mte.disconnect();
         res.json(result);
     } catch (e) {
-        res.status(500).send(e.message);
+        res.status(500).send(e.stack);
     }
 };

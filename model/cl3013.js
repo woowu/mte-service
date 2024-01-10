@@ -8,11 +8,25 @@ const commandCodes = {
     CMD_CONNECT_RESP: 57,
     CMD_READ: 160,
     CMD_READ_RESP: 80,
-    CMD_SETUP_LOAD: 163,
-    CMD_WRITE_ACK: 48,
-    CMD_WRITE_NACK: 51,
+    CMD_WRITE: 163,
+    CMD_ACK: 48,
+    CMD_NAK: 51,
 };
 const LINE_NUM = 3;
+
+const objectAddress = {
+    instantaneous: Buffer.from([0x02, 0x3d]),
+    loadSetup: Buffer.from([0x05, 0x46]),
+    wiringSetup: Buffer.from([0x00, 0x01, 0x20]),
+    displayWindow: Buffer.from([0x00, 0x10, 0x80]),
+}
+
+/*----------------------------------------------------------------------------*/
+
+exports.objectAddress = objectAddress;
+exports.DEFAULT_MTE_ADDR = 1;
+
+/*----------------------------------------------------------------------------*/
 
 /**
  * @param msg a buffer of message excluding the ending 'checksum' byte.
@@ -91,6 +105,11 @@ function compositeMsg(msg) {
     return Buffer.from(buf);
 }
 
+function parseConnectReq(data)
+{
+    return null;
+}
+
 function parseConnectResp(data)
 {
     const copyString = (offset, maxLen) => {
@@ -149,32 +168,57 @@ function parseReadInstantaneousResp(data)
     return value;
 }
 
-function parseReadResp(data)
+function parseWriteReq(data)
 {
-    const selector = data.slice(0, 2);
-    if (selector.equals(Buffer.from([0x02, 0x3d])))
-        return parseReadInstantaneousResp(data);
+    if (data.length >= 3 && data.slice(0, 3).equals(Buffer.from([
+        0x00, 0x10, 0x80])))
+        return {
+            addr: data.slice(0, 3),
+            data: data.slice(3),
+        };
+    else
+        return {
+            addr: data.slice(0, 2),
+            data: data.slice(2),
+        };
+}
+
+function parseReadReq(data)
+{
     return {
-        error: 'unknown selector in read response: '
-            + selector.toString('hex'),
+        addr: data.slice(0, 2),
+        data: data.slice(2),
     };
 }
 
-function parseWriteResult(data, cmd)
+function parseReadResp(data)
+{
+    const addr = data.slice(0, 2);
+    if (addr.equals(objectAddress.instantaneous))
+        return parseReadInstantaneousResp(data);
+    return {
+        error: 'unknown address in read response: ' + addr.toString('hex'),
+    };
+}
+
+function parseAcknowledge(data, cmd)
 {
     console.log('001', cmd);
-    return { result: cmd == commandCodes.CMD_WRITE_ACK
-        ? 'success' : cmd == commandCodes.CMD_WRITE_NACK
+    return { result: cmd == commandCodes.CMD_ACK
+        ? 'success' : cmd == commandCodes.CMD_NAK
         ? 'failure' : cmd };
 }
 
 function parseMessage(msg)
 {
     const messageParsers = {
+        201: parseConnectReq,
         57: parseConnectResp,
+        163: parseWriteReq,
+        160: parseReadReq,
         80: parseReadResp,
-        48: parseWriteResult,
-        51: parseWriteResult,
+        48: parseAcknowledge,
+        51: parseAcknowledge,
     };
 
     var data = { raw: msg.slice(5, msg.length - 1) };
@@ -194,8 +238,6 @@ function parseMessage(msg)
 
 /*----------------------------------------------------------------------------*/
 
-exports.DEFAULT_MTE_ADDR = 1;
-
 /**
  * @event message(msg) msg: a Buffer of received message
  */
@@ -213,7 +255,7 @@ exports.MessageReceiver = class MessageReceiver extends EventEmitter {
 
     start() {
         this.#socket.on('data', data => {
-            console.log('socket received new data', data);
+            console.log('socket received new data:\n' + dump(data));
             this.#buf = [...this.#buf, ...data];
             clearTimeout(this.#readTimer);
             this.#readMessage();
@@ -248,6 +290,8 @@ exports.MessageReceiver = class MessageReceiver extends EventEmitter {
     }
 };
 
+/*----------------------------------------------------------------------------*/
+
 exports.createConnectMsg = function(sender, receiver) {
     return compositeMsg({
         receiverAddr: receiver,
@@ -256,7 +300,7 @@ exports.createConnectMsg = function(sender, receiver) {
     });
 };
 
-exports.createConnectResp = function(sender, receiver, {
+exports.createConnectRespMsg = function(sender, receiver, {
     protoVersion = '1', devType = '1', fwVersion = '1', seqno = '0'
 }) {
     const payload = protoVersion.slice(0, 7).padEnd(7, '\000')
@@ -271,23 +315,52 @@ exports.createConnectResp = function(sender, receiver, {
     });
 };
 
-exports.createReadInstantaneousMsg = function(sender, receiver) {
-    const selector = Buffer.from([
-        0x02, 0x3d,
-    ]);
-    const masks = Buffer.from([
-        0xff, 0x3f, 0xff, 0xff, 0x0f,
-    ]);
+exports.createReadMsg = function(sender, receiver, addr, data) {
     return compositeMsg({
         receiverAddr: receiver,
         senderAddr: sender,
         cmd: commandCodes.CMD_READ,
-        payload: Buffer.concat([selector, masks]),
+        payload: Buffer.concat([addr, data]),
     });
 };
 
-exports.createReadInstantaneousResp = function(sender, receiver, value) {
-    const selector = Buffer.from([0x02, 0x3d]);
+exports.createReadRespMsg = function(sender, receiver, addr, data) {
+    return compositeMsg({
+        receiverAddr: receiver,
+        senderAddr: sender,
+        cmd: commandCodes.CMD_READ_RESP,
+        payload: Buffer.concat([addr, data]),
+    });
+};
+
+exports.createWriteMsg = function(sender, receiver, addr, data) {
+    return compositeMsg({
+        receiverAddr: receiver,
+        senderAddr: sender,
+        cmd: commandCodes.CMD_WRITE,
+        payload: Buffer.concat([addr, data]),
+    });
+};
+
+exports.createAcknowledgeMsg = function(sender, receiver, result) {
+    return compositeMsg({
+        receiverAddr: receiver,
+        senderAddr: sender,
+        cmd: result ? commandCodes.CMD_ACK
+            : commandCodes.CMD_NAK,
+    });
+};
+
+/*----------------------------------------------------------------------------*/
+
+exports.createReadInstantaneousData = function() {
+    const masks = Buffer.from([
+        0xff, 0x3f, 0xff, 0xff, 0x0f,
+    ]);
+    return masks;
+};
+
+exports.createReadInstantaneousResp = function(value) {
     var a;
 
     const v = new Array(LINE_NUM);
@@ -372,39 +445,31 @@ exports.createReadInstantaneousResp = function(sender, receiver, value) {
             ? value.s[1] : 0);
     }
 
-    return compositeMsg({
-        receiverAddr: receiver,
-        senderAddr: sender,
-        cmd: commandCodes.CMD_READ_RESP,
-        payload: Buffer.concat([
-            selector,
+    return Buffer.concat([
+        Buffer.from([0xff]),
+        v[2], v[1], v[0],
+        i[2], i[1], i[0],
+        freq,
+        overloadFlag,
 
-            Buffer.from([0xff]),
-            v[2], v[1], v[0],
-            i[2], i[1], i[0],
-            freq,
-            overloadFlag,
+        Buffer.from([0x3f]),
+        vPhi[2], vPhi[1], vPhi[0],
+        iPhi[2], iPhi[1], iPhi[0],
 
-            Buffer.from([0x3f]),
-            vPhi[2], vPhi[1], vPhi[0],
-            iPhi[2], iPhi[1], iPhi[0],
+        Buffer.from([0xff]),
+        lPhi[2], lPhi[1], lPhi[0],
+        pf[2], pf[1], pf[0], pf[3], pf[4],
 
-            Buffer.from([0xff]),
-            lPhi[2], lPhi[1], lPhi[0],
-            pf[2], pf[1], pf[0], pf[3], pf[4],
+        Buffer.from([0xff]),
+        p[2], p[1], p[0], p[3],
+        q[2], q[1], q[0], q[3],
 
-            Buffer.from([0xff]),
-            p[2], p[1], p[0], p[3],
-            q[2], q[1], q[0], q[3],
-
-            Buffer.from([0x0f]),
-            s[2], s[1], s[0], s[3],
-        ]),
-    });
+        Buffer.from([0x0f]),
+        s[2], s[1], s[0], s[3],
+    ]);
 };
 
-exports.createSetupLoadMsg = function(sender, receiver, loadDef) {
-    const selector = Buffer.from([0x05, 0x46]);
+exports.createSetupLoadData = function(loadDef) {
     const freqFlag = loadDef.freq !== undefined  ? 7 : 0;
 
     var phaseMask = 0;
@@ -445,33 +510,18 @@ exports.createSetupLoadMsg = function(sender, receiver, loadDef) {
 
     const freq = encodeUint32(loadDef.freq !== undefined ? loadDef.freq : 0);
 
-    return compositeMsg({
-        receiverAddr: receiver,
-        senderAddr: sender,
-        cmd: commandCodes.CMD_SETUP_LOAD,
-        payload: Buffer.concat([
-            selector,
+    return Buffer.concat([
+        Buffer.from([0x3f]),
+        vPhi[2], vPhi[1], vPhi[0],
+        iPhi[2], iPhi[1], iPhi[0],
 
-            Buffer.from([0x3f]),
-            vPhi[2], vPhi[1], vPhi[0],
-            iPhi[2], iPhi[1], iPhi[0],
+        Buffer.from([0xff]),
+        v[2], v[1], v[0],
+        i[2], i[1], i[0],
+        freq,
+        Buffer.from([freqFlag]),
 
-            Buffer.from([0xff]),
-            v[2], v[1], v[0],
-            i[2], i[1], i[0],
-            freq,
-            Buffer.from([freqFlag]),
-
-            Buffer.from([0x07]),
-            Buffer.from([phaseMask, amplitudeMask, 0]),
-        ]),
-    });
-};
-
-exports.createSetupLoadResp = function(sender, receiver, result) {
-    return compositeMsg({
-        receiverAddr: receiver,
-        senderAddr: sender,
-        cmd: commandCodes.CMD_WRITE_ACK,
-    });
+        Buffer.from([0x07]),
+        Buffer.from([phaseMask, amplitudeMask, 0]),
+    ]);
 };

@@ -5,9 +5,10 @@ const net = require('node:net');
 const dump = require('buffer-hexdump');
 const {
     MessageReceiver,
-    createConnectResp,
+    createConnectRespMsg,
     createReadInstantaneousResp,
-    createSetupLoadResp,
+    createReadRespMsg,
+    createAcknowledgeMsg,
     DEFAULT_MTE_ADDR,
 } = require('../model/cl3013.js');
 
@@ -17,45 +18,51 @@ const SERVER_PORT = 2404;
 
 function handleConnect(req, socket)
 {
-    const resp = createConnectResp(req.receiverAddr, req.senderAddr, {});
-    console.log('send resposne:\n' + dump(resp));
-    socket.write(resp);
+    const msg = createConnectRespMsg(req.receiverAddr, req.senderAddr,
+        {});
+    console.log('send response:\n' + dump(msg));
+    socket.write(msg);
 }
 
-function handleReadInstantaneous(req, socket)
+function handleRead(req, socket)
 {
-    const resp = createReadInstantaneousResp(req.receiverAddr, req.senderAddr,
-        {
-            v: [
-                [239e6, -6],
-                [241e6, -6],
-                [230e6, -6],
-            ],
-            i: [
-                [5.01e6, -6],
-                [4.99e6, -6],
-                [20.68e6, -6],
-            ],
-            p: [
-                [84668258, -5],
-                [85035954, -5],
-                [411916323, -5],
-            ],
-            q: [
-                [84668258, -5],
-                [85035954, -5],
-                [237820000, -5],
-            ],
-        });
-    console.log('send resposne:\n' + dump(resp));
-    socket.write(resp);
+    /* currently i assume the addr is always [0x02, 0x3d] and
+     * data is [0xff, 0x3f, 0xff, 0xff, 0x0f]
+     */
+
+    const resp = createReadInstantaneousResp({
+        v: [
+            [239e6, -6],
+            [241e6, -6],
+            [230e6, -6],
+        ],
+        i: [
+            [5.01e6, -6],
+            [4.99e6, -6],
+            [20.68e6, -6],
+        ],
+        p: [
+            [84668258, -5],
+            [85035954, -5],
+            [411916323, -5],
+        ],
+        q: [
+            [84668258, -5],
+            [85035954, -5],
+            [237820000, -5],
+        ],
+    });
+    const msg = createReadRespMsg(req.receiverAddr, req.senderAddr,
+        req.data.addr, resp);
+    console.log('send response:\n' + dump(msg));
+    socket.write(msg);
 }
 
-function handleSetupLoad(req, socket)
+function handleWrite(req, socket)
 {
-    const msg = createSetupLoadResp(req.receiverAddr, req.senderAddr,
+    const msg = createAcknowledgeMsg(req.receiverAddr, req.senderAddr,
         true);
-    console.log('send resposne:\n', dump(msg));
+    console.log('send response:\n', dump(msg));
     socket.write(msg);
 }
 
@@ -82,11 +89,11 @@ class Server {
     }
 
     #processMessage(msg) {
-        console.log('process message', msg);
+        console.log('received message', msg);
         const reqCmdHandlers = {
             201: handleConnect,
-            160: handleReadInstantaneous,
-            163: handleSetupLoad,
+            160: handleRead,
+            163: handleWrite,
         };
 
         var handlered = false;

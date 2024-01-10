@@ -3,10 +3,13 @@ const dump = require('buffer-hexdump');
 
 const {
     MessageReceiver,
-    commandCodes,
+    createWriteMsg,
+    createReadMsg,
     createConnectMsg,
-    createReadInstantaneousMsg,
-    createSetupLoadMsg,
+    createReadInstantaneousData,
+    createSetupLoadData,
+    commandCodes,
+    objectAddress,
     DEFAULT_MTE_ADDR,
 } = require('../model/cl3013.js');
 
@@ -50,8 +53,10 @@ class Mte {
 
     readInstantaneous() {
         return new Promise((resolve, reject) => {
-            this.#exchangeMsg(createReadInstantaneousMsg(
-                SELF_ADDR, DEFAULT_MTE_ADDR))
+            const rdMsg = createReadMsg(SELF_ADDR, DEFAULT_MTE_ADDR,
+                objectAddress.instantaneous,
+                createReadInstantaneousData());
+            this.#exchangeMsg(rdMsg)
                 .then(resp => {
                     resolve(resp.data);
                 })
@@ -59,10 +64,17 @@ class Mte {
         });
     }
 
-    async setupLoad(def) {
+    setupLoad(def) {
         return new Promise((resolve, reject) => {
-            this.#exchangeMsg(createSetupLoadMsg(
-                SELF_ADDR, DEFAULT_MTE_ADDR, def))
+            const wrMsg = createWriteMsg(SELF_ADDR, DEFAULT_MTE_ADDR,
+                objectAddress.loadSetup, createSetupLoadData(def));
+            this.#exchangeMsg(wrMsg)
+                .then(resp => {
+                    const wrMsg = createWriteMsg(
+                        SELF_ADDR, DEFAULT_MTE_ADDR,
+                        objectAddress.displayWindow, Buffer.from([0x81]));
+                    return this.#exchangeMsg(wrMsg);
+                })
                 .then(resp => {
                     resolve(resp.data);
                 })
