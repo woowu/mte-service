@@ -12,7 +12,7 @@ const commandCodes = {
     CMD_ACK: 48,
     CMD_NAK: 51,
 };
-const LINE_NUM = 3;
+const LINES_NUM = 3;
 
 const objectAddress = {
     instantaneous: Buffer.from([0x02, 0x3d]),
@@ -138,7 +138,7 @@ function parseReadInstantaneousResp(data)
         decodeInt4e1(data.slice(23, 23 + 5)),
         decodeInt4e1(data.slice(18, 18 + 5)),
     ];
-    value.freq = decodeUint32(data.slice(33, 33 + 4));
+    value.f = decodeUint32(data.slice(33, 33 + 4));
     value.overloadFlag = data[37];
     value.pf = [
         decodeInt32(data.slice(84, 84 + 4)),
@@ -363,14 +363,14 @@ exports.createReadInstantaneousData = function() {
 exports.createReadInstantaneousResp = function(value) {
     var a;
 
-    const v = new Array(LINE_NUM);
+    const v = new Array(LINES_NUM);
     for (var l = 0; l < v.length; ++l) {
         v[l] = encodeInt4e1(value.v !== undefined && value.v[l] !== undefined
             ? value.v[l][0] : 0,
             value.v !== undefined && value.v[l] !== undefined
             ? value.v[l][1] : 0);
     }
-    const i = new Array(LINE_NUM);
+    const i = new Array(LINES_NUM);
     for (var l = 0; l < i.length; ++l) {
         i[l] = encodeInt4e1(value.i !== undefined && value.i[l] !== undefined
             ? value.i[l][0] : 0,
@@ -380,31 +380,31 @@ exports.createReadInstantaneousResp = function(value) {
 
     a = new ArrayBuffer(4);
     new DataView(a).setUint32(0,
-        value.freq !== undefined ? value.freq : 0, true);
-    const freq = Buffer.from(a);
+        value.f !== undefined ? value.f : 0, true);
+    const f = Buffer.from(a);
 
     const overloadFlag = Buffer.from([
         value.overloadFlag !== undefined ? value.overloadFlag : 0
     ]);
 
-    const vPhi = new Array(LINE_NUM);
-    for (var l = 0; l < vPhi.length; ++l) {
+    const phi_v = new Array(LINES_NUM);
+    for (var l = 0; l < phi_v.length; ++l) {
         a = new ArrayBuffer(4);
         new DataView(a).setUint32(0,
-            value.vPhi !== undefined && value.vPhi[l] !== undefined
-            ? value.vPhi[l] : 0, true);
-        vPhi[l] = Buffer.from(a);
+            value.phi_v !== undefined && value.phi_v[l] !== undefined
+            ? value.phi_v[l] : 0, true);
+        phi_v[l] = Buffer.from(a);
     }
-    const iPhi = new Array(LINE_NUM);
-    for (var l = 0; l < iPhi.length; ++l) {
+    const phi_i = new Array(LINES_NUM);
+    for (var l = 0; l < phi_i.length; ++l) {
         a = new ArrayBuffer(4);
         new DataView(a).setUint32(0,
-            value.iPhi !== undefined && value.iPhi[l] !== undefined
-            ? value.iPhi[l] : 0, true);
-        iPhi[l] = Buffer.from(a);
+            value.phi_i !== undefined && value.phi_i[l] !== undefined
+            ? value.phi_i[l] : 0, true);
+        phi_i[l] = Buffer.from(a);
     }
 
-    const lPhi = new Array(LINE_NUM);
+    const lPhi = new Array(LINES_NUM);
     for (var l = 0; l < lPhi.length; ++l) {
         a = new ArrayBuffer(4);
         new DataView(a).setUint32(0,
@@ -413,7 +413,7 @@ exports.createReadInstantaneousResp = function(value) {
         lPhi[l] = Buffer.from(a);
     }
 
-    const pf = new Array(LINE_NUM + 2);
+    const pf = new Array(LINES_NUM + 2);
     for (var l = 0; l < pf.length; ++l) {
         a = new ArrayBuffer(4);
         new DataView(a).setInt32(0,
@@ -422,14 +422,14 @@ exports.createReadInstantaneousResp = function(value) {
         pf[l] = Buffer.from(a);
     }
 
-    const p = new Array(LINE_NUM + 1);
+    const p = new Array(LINES_NUM + 1);
     for (var l = 0; l < p.length; ++l) {
         p[l] = encodeInt4e1(value.p !== undefined && value.p[l] !== undefined
             ? value.p[l][0] : 0,
             value.p !== undefined && value.p[l] !== undefined
             ? value.p[l][1] : 0);
     }
-    const q = new Array(LINE_NUM + 1);
+    const q = new Array(LINES_NUM + 1);
     for (var l = 0; l < q.length; ++l) {
         q[l] = encodeInt4e1(value.q !== undefined && value.q[l] !== undefined
             ? value.q[l][0] : 0,
@@ -437,7 +437,7 @@ exports.createReadInstantaneousResp = function(value) {
             ? value.q[l][1] : 0);
     }
 
-    const s = new Array(LINE_NUM + 1);
+    const s = new Array(LINES_NUM + 1);
     for (var l = 0; l < s.length; ++l) {
         s[l] = encodeInt4e1(value.s !== undefined && value.s[l] !== undefined
             ? value.s[0] : 0,
@@ -449,12 +449,12 @@ exports.createReadInstantaneousResp = function(value) {
         Buffer.from([0xff]),
         v[2], v[1], v[0],
         i[2], i[1], i[0],
-        freq,
+        f,
         overloadFlag,
 
         Buffer.from([0x3f]),
-        vPhi[2], vPhi[1], vPhi[0],
-        iPhi[2], iPhi[1], iPhi[0],
+        phi_v[2], phi_v[1], phi_v[0],
+        phi_i[2], phi_i[1], phi_i[0],
 
         Buffer.from([0xff]),
         lPhi[2], lPhi[1], lPhi[0],
@@ -470,28 +470,28 @@ exports.createReadInstantaneousResp = function(value) {
 };
 
 exports.createSetupLoadData = function(loadDef) {
-    const freqFlag = loadDef.freq !== undefined  ? 7 : 0;
+    const freqFlag = loadDef.f !== undefined  ? 7 : 0;
 
     var phaseMask = 0;
-    const vPhi = new Array(LINE_NUM);
-    for (var l = 0; l < vPhi.length; ++l) {
-        if (loadDef.vPhi && loadDef.vPhi[l] !== null) {
-            vPhi[l] = encodeUint32(loadDef.vPhi[l]);
-            phaseMask |= 1 << (vPhi.length - 1) - l
+    const phi_v = new Array(LINES_NUM);
+    for (var l = 0; l < phi_v.length; ++l) {
+        if (loadDef.phi_v && loadDef.phi_v[l] !== null) {
+            phi_v[l] = encodeUint32(loadDef.phi_v[l]);
+            phaseMask |= 1 << (phi_v.length - 1) - l
         } else
-            vPhi[l] = encodeUint32(0);
+            phi_v[l] = encodeUint32(0);
     }
-    const iPhi = new Array(LINE_NUM);
-    for (var l = 0; l < iPhi.length; ++l) {
-        if (loadDef.iPhi && loadDef.iPhi[l] !== null) {
-            iPhi[l] = encodeUint32(loadDef.iPhi[l]);
-            phaseMask |= 8 << (iPhi.length - 1) - l
+    const phi_i = new Array(LINES_NUM);
+    for (var l = 0; l < phi_i.length; ++l) {
+        if (loadDef.phi_i && loadDef.phi_i[l] !== null) {
+            phi_i[l] = encodeUint32(loadDef.phi_i[l]);
+            phaseMask |= 8 << (phi_i.length - 1) - l
         } else
-            iPhi[l] = encodeUint32(0);
+            phi_i[l] = encodeUint32(0);
     }
 
     var amplitudeMask = 0;
-    const v = new Array(LINE_NUM);
+    const v = new Array(LINES_NUM);
     for (var l = 0; l < v.length; ++l) {
         if (loadDef.v && loadDef.v[l] !== null) {
             v[l] = encodeInt4e1(loadDef.v[l][0], loadDef.v[l][1]);
@@ -499,7 +499,7 @@ exports.createSetupLoadData = function(loadDef) {
         } else
             v[l] = encodeInt4e1(0, 0);
     }
-    const i = new Array(LINE_NUM);
+    const i = new Array(LINES_NUM);
     for (var l = 0; l < i.length; ++l) {
         if (loadDef.i && loadDef.i[l] !== null) {
             i[l] = encodeInt4e1(loadDef.i[l][0], loadDef.i[l][1]);
@@ -508,17 +508,17 @@ exports.createSetupLoadData = function(loadDef) {
             i[l] = encodeInt4e1(0, 0);
     }
 
-    const freq = encodeUint32(loadDef.freq !== undefined ? loadDef.freq : 0);
+    const f = encodeUint32(loadDef.f !== undefined ? loadDef.f : 0);
 
     return Buffer.concat([
         Buffer.from([0x3f]),
-        vPhi[2], vPhi[1], vPhi[0],
-        iPhi[2], iPhi[1], iPhi[0],
+        phi_v[2], phi_v[1], phi_v[0],
+        phi_i[2], phi_i[1], phi_i[0],
 
         Buffer.from([0xff]),
         v[2], v[1], v[0],
         i[2], i[1], i[0],
-        freq,
+        f,
         Buffer.from([freqFlag]),
 
         Buffer.from([0x07]),

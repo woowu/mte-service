@@ -7,8 +7,8 @@
  */
 
 const loadDef = {
-    vPhi: [0, 240e4, 120e4],
-    iPhi: [0, 240e4, 120e4],
+    phi_v: [0, 240e4, 120e4],
+    phi_i: [0, 240e4, 120e4],
     v: [
         [242e4, -4],
         [242e4, -4],
@@ -19,6 +19,6 @@ const loadDef = {
         [6e6, -6],
         [6e6, -6],
     ],
-    freq: 50e4,
+    f: 50e4,
 };
 console.log(JSON.stringify(loadDef));
