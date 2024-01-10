@@ -90,6 +90,15 @@ function decodeInt4e1(data) {
 }
 
 /**
+ * @parm n in int4e1 format [m, n]
+ * @return a float number
+ */
+function int4e1ToFloat(n)
+{
+    return n[0] * Math.pow(10, n[1]);
+}
+
+/**
  * @param msg message of upper layer
  * @return a Buffer of message
  */
@@ -127,43 +136,44 @@ function parseConnectResp(data)
 
 function parseReadInstantaneousResp(data)
 {
+    console.log('002', decodeInt4e1(data.slice(13, 13 + 5)));
     const value = {};
     value.v = [
-        decodeInt4e1(data.slice(13, 13 + 5)),
-        decodeInt4e1(data.slice(8, 8 + 5)),
-        decodeInt4e1(data.slice(3, 3 + 5)),
+        int4e1ToFloat(decodeInt4e1(data.slice(13, 13 + 5))),
+        int4e1ToFloat(decodeInt4e1(data.slice(8, 8 + 5))),
+        int4e1ToFloat(decodeInt4e1(data.slice(3, 3 + 5))),
     ];
     value.i = [
-        decodeInt4e1(data.slice(28, 28 + 5)),
-        decodeInt4e1(data.slice(23, 23 + 5)),
-        decodeInt4e1(data.slice(18, 18 + 5)),
+        int4e1ToFloat(decodeInt4e1(data.slice(28, 28 + 5))),
+        int4e1ToFloat(decodeInt4e1(data.slice(23, 23 + 5))),
+        int4e1ToFloat(decodeInt4e1(data.slice(18, 18 + 5))),
     ];
-    value.f = decodeUint32(data.slice(33, 33 + 4));
+    value.f = decodeUint32(data.slice(33, 33 + 4)) / 1e4;
     value.overloadFlag = data[37];
     value.pf = [
-        decodeInt32(data.slice(84, 84 + 4)),
-        decodeInt32(data.slice(80, 80 + 4)),
-        decodeInt32(data.slice(76, 76 + 4)),
-        decodeInt32(data.slice(88, 88 + 4)), /* total pf */
-        decodeInt32(data.slice(92, 92 + 4)), /* total sin(phi) */
+        decodeInt32(data.slice(84, 84 + 4)) / 1e4,
+        decodeInt32(data.slice(80, 80 + 4)) / 1e4,
+        decodeInt32(data.slice(76, 76 + 4)) / 1e4,
+        decodeInt32(data.slice(88, 88 + 4)) / 1e4, /* total pf */
+        decodeInt32(data.slice(92, 92 + 4)) / 1e4, /* total sin(phi) */
     ];
     value.p = [
-        decodeInt4e1(data.slice(107, 107 + 5)),
-        decodeInt4e1(data.slice(102, 102 + 5)),
-        decodeInt4e1(data.slice(97, 97 + 5)),
-        decodeInt4e1(data.slice(112, 112 + 5)), /* total p */
+        int4e1ToFloat(decodeInt4e1(data.slice(107, 107 + 5))),
+        int4e1ToFloat(decodeInt4e1(data.slice(102, 102 + 5))),
+        int4e1ToFloat(decodeInt4e1(data.slice(97, 97 + 5))),
+        int4e1ToFloat(decodeInt4e1(data.slice(112, 112 + 5))), /* total p */
     ];
     value.q = [
-        decodeInt4e1(data.slice(127, 127 + 5)),
-        decodeInt4e1(data.slice(122, 122 + 5)),
-        decodeInt4e1(data.slice(117, 117 + 5)),
-        decodeInt4e1(data.slice(132, 132 + 5)), /* total q */
+        int4e1ToFloat(decodeInt4e1(data.slice(127, 127 + 5))),
+        int4e1ToFloat(decodeInt4e1(data.slice(122, 122 + 5))),
+        int4e1ToFloat(decodeInt4e1(data.slice(117, 117 + 5))),
+        int4e1ToFloat(decodeInt4e1(data.slice(132, 132 + 5))), /* total q */
     ];
     value.s = [
-        decodeInt4e1(data.slice(148, 148 + 5)),
-        decodeInt4e1(data.slice(143, 143 + 5)),
-        decodeInt4e1(data.slice(138, 138 + 5)),
-        decodeInt4e1(data.slice(153, 153 + 5)), /* total s */
+        int4e1ToFloat(decodeInt4e1(data.slice(148, 148 + 5))),
+        int4e1ToFloat(decodeInt4e1(data.slice(143, 143 + 5))),
+        int4e1ToFloat(decodeInt4e1(data.slice(138, 138 + 5))),
+        int4e1ToFloat(decodeInt4e1(data.slice(153, 153 + 5))), /* total s */
     ];
     return value;
 }
@@ -363,24 +373,25 @@ exports.createReadInstantaneousData = function() {
 exports.createReadInstantaneousResp = function(value) {
     var a;
 
+    console.log('001', value);
     const v = new Array(LINES_NUM);
     for (var l = 0; l < v.length; ++l) {
-        v[l] = encodeInt4e1(value.v !== undefined && value.v[l] !== undefined
-            ? value.v[l][0] : 0,
-            value.v !== undefined && value.v[l] !== undefined
-            ? value.v[l][1] : 0);
+        if (value.v !== undefined && value.v[l] !== undefined)
+            v[l] = encodeInt4e1(Math.round(value.v[l] * 1e6), -6);
+        else
+            v[l] = encodeInt4e1(0, 0);
     }
     const i = new Array(LINES_NUM);
     for (var l = 0; l < i.length; ++l) {
-        i[l] = encodeInt4e1(value.i !== undefined && value.i[l] !== undefined
-            ? value.i[l][0] : 0,
-            value.i !== undefined && value.i[l] !== undefined
-            ? value.i[l][1] : 0);
+        if (value.i !== undefined && value.i[l] !== undefined)
+            i[l] = encodeInt4e1(Math.round(value.i[l] * 1e6), -6);
+        else
+            i[l] = encodeInt4e1(0, 0);
     }
 
     a = new ArrayBuffer(4);
     new DataView(a).setUint32(0,
-        value.f !== undefined ? value.f : 0, true);
+        value.f !== undefined ? Math.round(value.f * 1e4) : 0, true);
     const f = Buffer.from(a);
 
     const overloadFlag = Buffer.from([
@@ -392,7 +403,7 @@ exports.createReadInstantaneousResp = function(value) {
         a = new ArrayBuffer(4);
         new DataView(a).setUint32(0,
             value.phi_v !== undefined && value.phi_v[l] !== undefined
-            ? value.phi_v[l] : 0, true);
+            ? Math.round(value.phi_v[l] * 1e4) : 0, true);
         phi_v[l] = Buffer.from(a);
     }
     const phi_i = new Array(LINES_NUM);
@@ -400,17 +411,17 @@ exports.createReadInstantaneousResp = function(value) {
         a = new ArrayBuffer(4);
         new DataView(a).setUint32(0,
             value.phi_i !== undefined && value.phi_i[l] !== undefined
-            ? value.phi_i[l] : 0, true);
+            ? Math.round(value.phi_i[l] * 1e4) : 0, true);
         phi_i[l] = Buffer.from(a);
     }
 
-    const lPhi = new Array(LINES_NUM);
-    for (var l = 0; l < lPhi.length; ++l) {
+    const phi_x = new Array(LINES_NUM);
+    for (var l = 0; l < phi_x.length; ++l) {
         a = new ArrayBuffer(4);
         new DataView(a).setUint32(0,
-            value.lPhi !== undefined && value.lPhi[l] !== undefined
-            ? value.lPhi[l] : 0, true);
-        lPhi[l] = Buffer.from(a);
+            value.phi_x !== undefined && value.phi_x[l] !== undefined
+            ? Math.round(value.phi_x[l] * 1e4) : 0, true);
+        phi_x[l] = Buffer.from(a);
     }
 
     const pf = new Array(LINES_NUM + 2);
@@ -418,31 +429,31 @@ exports.createReadInstantaneousResp = function(value) {
         a = new ArrayBuffer(4);
         new DataView(a).setInt32(0,
             value.pf !== undefined && value.pf[l] !== undefined
-            ? value.pf[l] : 0, true);
+            ? Math.round(value.pf[l] * 1e4) : 0, true);
         pf[l] = Buffer.from(a);
     }
 
     const p = new Array(LINES_NUM + 1);
     for (var l = 0; l < p.length; ++l) {
-        p[l] = encodeInt4e1(value.p !== undefined && value.p[l] !== undefined
-            ? value.p[l][0] : 0,
-            value.p !== undefined && value.p[l] !== undefined
-            ? value.p[l][1] : 0);
+        if (value.p !== undefined && value.p[l] !== undefined)
+            p[l] = encodeInt4e1(Math.round(value.p[l] * 1e4), -4);
+        else
+            p[l] = encodeInt4e1(0, 0);
     }
     const q = new Array(LINES_NUM + 1);
     for (var l = 0; l < q.length; ++l) {
-        q[l] = encodeInt4e1(value.q !== undefined && value.q[l] !== undefined
-            ? value.q[l][0] : 0,
-            value.q !== undefined && value.q[l] !== undefined
-            ? value.q[l][1] : 0);
+        if (value.q !== undefined && value.q[l] !== undefined)
+            q[l] = encodeInt4e1(Math.round(value.q[l] * 1e4), -4);
+        else
+            q[l] = encodeInt4e1(0, 0);
     }
 
     const s = new Array(LINES_NUM + 1);
     for (var l = 0; l < s.length; ++l) {
-        s[l] = encodeInt4e1(value.s !== undefined && value.s[l] !== undefined
-            ? value.s[0] : 0,
-            value.s !== undefined && value.s[l] !== undefined
-            ? value.s[1] : 0);
+        if (value.s !== undefined && value.s[l] !== undefined)
+            s[l] = encodeInt4e1(Math.round(value.s[l] * 1e4), -4);
+        else
+            s[l] = encodeInt4e1(0, 0);
     }
 
     return Buffer.concat([
@@ -457,7 +468,7 @@ exports.createReadInstantaneousResp = function(value) {
         phi_i[2], phi_i[1], phi_i[0],
 
         Buffer.from([0xff]),
-        lPhi[2], lPhi[1], lPhi[0],
+        phi_x[2], phi_x[1], phi_x[0],
         pf[2], pf[1], pf[0], pf[3], pf[4],
 
         Buffer.from([0xff]),
@@ -476,7 +487,7 @@ exports.createSetupLoadData = function(loadDef) {
     const phi_v = new Array(LINES_NUM);
     for (var l = 0; l < phi_v.length; ++l) {
         if (loadDef.phi_v && loadDef.phi_v[l] !== null) {
-            phi_v[l] = encodeUint32(loadDef.phi_v[l]);
+            phi_v[l] = encodeUint32(Math.round(loadDef.phi_v[l] * 1e4));
             phaseMask |= 1 << (phi_v.length - 1) - l
         } else
             phi_v[l] = encodeUint32(0);
@@ -484,7 +495,7 @@ exports.createSetupLoadData = function(loadDef) {
     const phi_i = new Array(LINES_NUM);
     for (var l = 0; l < phi_i.length; ++l) {
         if (loadDef.phi_i && loadDef.phi_i[l] !== null) {
-            phi_i[l] = encodeUint32(loadDef.phi_i[l]);
+            phi_i[l] = encodeUint32(Math.round(loadDef.phi_i[l] * 1e4));
             phaseMask |= 8 << (phi_i.length - 1) - l
         } else
             phi_i[l] = encodeUint32(0);
@@ -494,7 +505,7 @@ exports.createSetupLoadData = function(loadDef) {
     const v = new Array(LINES_NUM);
     for (var l = 0; l < v.length; ++l) {
         if (loadDef.v && loadDef.v[l] !== null) {
-            v[l] = encodeInt4e1(loadDef.v[l][0], loadDef.v[l][1]);
+            v[l] = encodeInt4e1(Math.round(loadDef.v[l] * 1e6), -6);
             amplitudeMask |= 1 << (v.length - 1) - l
         } else
             v[l] = encodeInt4e1(0, 0);
@@ -502,13 +513,14 @@ exports.createSetupLoadData = function(loadDef) {
     const i = new Array(LINES_NUM);
     for (var l = 0; l < i.length; ++l) {
         if (loadDef.i && loadDef.i[l] !== null) {
-            i[l] = encodeInt4e1(loadDef.i[l][0], loadDef.i[l][1]);
+            i[l] = encodeInt4e1(Math.round(loadDef.i[l] * 1e6), -6);
             amplitudeMask |= 8 << (v.length - 1) - l
         } else
             i[l] = encodeInt4e1(0, 0);
     }
 
-    const f = encodeUint32(loadDef.f !== undefined ? loadDef.f : 0);
+    const f = encodeUint32(loadDef.f !== undefined
+        ? Math.round(loadDef.f * 1e4) : 0);
 
     return Buffer.concat([
         Buffer.from([0x3f]),

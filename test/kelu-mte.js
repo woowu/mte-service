@@ -31,26 +31,10 @@ function handleRead(req, socket)
      */
 
     const resp = createReadInstantaneousResp({
-        v: [
-            [239e6, -6],
-            [241e6, -6],
-            [230e6, -6],
-        ],
-        i: [
-            [5.01e6, -6],
-            [4.99e6, -6],
-            [20.68e6, -6],
-        ],
-        p: [
-            [84668258, -5],
-            [85035954, -5],
-            [411916323, -5],
-        ],
-        q: [
-            [84668258, -5],
-            [85035954, -5],
-            [237820000, -5],
-        ],
+        v: [242.1, 242.2, 242.3],
+        i: [6.6, 10.2, 20],
+        p: [1.3838e3, 2.4704e3, 4.846e3],
+        q: [.79893e3, 0, 0],
     });
     const msg = createReadRespMsg(req.receiverAddr, req.senderAddr,
         req.data.addr, resp);
