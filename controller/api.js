@@ -5,7 +5,7 @@ const Mte = require('../model/Mte');
 
 var mteConfig = {
     host: 'localhost',
-    port: 2402,
+    port: 2404,
 };
 
 async function createMte()
