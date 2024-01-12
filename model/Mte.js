@@ -34,6 +34,7 @@ class Mte {
                 reject(err);
             });
 
+            console.log(`connect ${host}:${port}`);
             this.#client.connect(port, host, () => {
                 console.log('mte socket connected');
                 this.#receiver = new MessageReceiver(this.#client, SELF_ADDR);

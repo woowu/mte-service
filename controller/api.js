@@ -3,11 +3,16 @@
 const { response } = require('express');
 const Mte = require('../model/Mte');
 
+var mteConfig = {
+    host: 'localhost',
+    port: 2402,
+};
+
 async function createMte()
 {
     const mte = new Mte();
     const devInfo = await mte.connect(
-        process.env.MTE_HOST, process.env.MTE_PORT);
+        mteConfig.host, mteConfig.port);
     console.log('device info', devInfo);
     return mte;
 }
@@ -36,6 +41,27 @@ exports.updateLoadDef = async function(req, res = response)
         console.log('result:', result);
         mte.disconnect();
         res.json(result);
+    } catch (e) {
+        res.status(500).send(e.stack);
+    }
+};
+
+exports.updateMteConfig = async function(req, res = response)
+{
+    try {
+        const config = req.body;
+        console.log('mte config:', config);
+        mteConfig = config;
+        res.json({ result: 'success' });
+    } catch (e) {
+        res.status(500).send(e.stack);
+    }
+};
+
+exports.getMteConfig = async function(req, res = response)
+{
+    try {
+        res.json(mteConfig);
     } catch (e) {
         res.status(500).send(e.stack);
     }

@@ -101,4 +101,4 @@ const server = net.createServer(socket => {
 });
 
 console.log(`listen on ${SERVER_PORT}`);
-server.listen(SERVER_PORT, 'localhost');
+server.listen(SERVER_PORT);
