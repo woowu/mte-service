@@ -51,7 +51,7 @@ exports.updateMteConfig = async function(req, res = response)
     try {
         const config = req.body;
         console.log('mte config:', config);
-        mteConfig = config;
+        mteConfig = Object.assign({}, mteConfig,  config);
         res.json({ result: 'success' });
     } catch (e) {
         res.status(500).send(e.stack);
