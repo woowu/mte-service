@@ -11,6 +11,9 @@ const commandCodes = {
     CMD_WRITE: 163,
     CMD_ACK: 48,
     CMD_NAK: 51,
+    CMD_POLL_TEST_RESULT: 52,
+    CMD_POLL_TEST_RESULT_RESP: 52,
+    CMD_STOP_TEST: 73,
 };
 const LINES_NUM = 3;
 
@@ -215,6 +218,24 @@ function parseReadResp(data)
     };
 }
 
+function parsePollTestResultReqResp(data)
+{
+    if (data.length == 1)
+        return {
+            meter: data[0],
+        };
+    else if (data.length == 6)
+        return {
+            meter: data[4],
+            seqno: data[5],
+            measError: data.slice(0, 4),
+        };
+    else
+        return {
+            error: 'bad message format for polling test result req/resp',
+        };
+}
+
 function parseAcknowledge(data, cmd)
 {
     return { result: cmd == commandCodes.CMD_ACK
@@ -232,6 +253,7 @@ function parseMessage(msg)
         80: parseReadResp,
         48: parseAcknowledge,
         51: parseAcknowledge,
+        52: parsePollTestResultReqResp, 
     };
 
     var data = { raw: msg.slice(5, msg.length - 1) };
@@ -363,6 +385,48 @@ exports.createAcknowledgeMsg = function(sender, receiver, result) {
             : commandCodes.CMD_NAK,
     });
 };
+
+exports.createStopTestMsg = function(sender, receiver, meter) {
+    return compositeMsg({
+        receiverAddr: receiver,
+        senderAddr: sender,
+        cmd: commandCodes.CMD_STOP_TEST,
+        payload: Buffer.from([ 0xff ]),
+    });
+};
+
+exports.createPollTestResultMsg = function(sender, receiver, meter) {
+    return compositeMsg({
+        receiverAddr: receiver,
+        senderAddr: sender,
+        cmd: commandCodes.CMD_POLL_TEST_RESULT,
+        payload: Buffer.from([meter]),
+    });
+};
+
+exports.createPollTestResultRespMsg = function(sender, receiver,
+    meter, seqno, result) {
+    return compositeMsg({
+        receiverAddr: receiver,
+        senderAddr: sender,
+        cmd: commandCodes.CMD_POLL_TEST_RESULT_RESP,
+        payload: Buffer.concat([
+            result,
+            Buffer.from([meter]),
+            Buffer.from([seqno]),
+        ]),
+    });
+};
+
+exports.createMsg = function(sender, receiver, cmd, data) {
+    return compositeMsg({
+        receiverAddr: receiver,
+        senderAddr: sender,
+        cmd,
+        payload: Buffer.from(data),
+    });
+};
+
 
 /*----------------------------------------------------------------------------*/
 
@@ -539,3 +603,7 @@ exports.createSetupLoadData = function(loadDef) {
         Buffer.from([phaseMask, amplitudeMask, 0]),
     ]);
 };
+
+exports.createPollTestResultResp = function(measError) {
+    return Buffer.alloc(4);
+}

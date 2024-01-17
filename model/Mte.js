@@ -6,9 +6,11 @@ const {
     createWriteMsg,
     createReadMsg,
     createConnectMsg,
+    createMsg,
     createReadInstantaneousData,
     createSetupLoadData,
-    commandCodes,
+    createStopTestMsg,
+    createPollTestResultMsg,
     objectAddress,
     DEFAULT_MTE_ADDR,
 } = require('../model/cl3013.js');
@@ -83,15 +85,100 @@ class Mte {
         });
     }
 
-    #exchangeMsg(req, timeout=3000) {
+    startTest(meter, param) {
+        console.log(`Start test on meter ${meter}. Param:`, param);
+
+        /* We don't know the meanings of the messages so far.
+         */
+        return new Promise((resolve, reject) => {
+            const msg = createMsg(SELF_ADDR, DEFAULT_MTE_ADDR,
+                0x32, Buffer.from([
+                    0x00, 0x00, 0x00, 0x03, 0xe8, 0x00, 0x00, 0x00,
+                    0x18, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                    0x00, 
+                ]));
+            this.#exchangeMsg(msg, { noresp: true, timeout: 1000 })
+                .then(() => {
+                    const msg = createMsg(SELF_ADDR, DEFAULT_MTE_ADDR,
+                        0x31, Buffer.from([
+                            0x00, 0xbe, 0xbc, 0x20, 0x00, 0x01,
+                        ]));
+                    return this.#exchangeMsg(msg, { noresp: true, timeout: 1000 });
+                })
+                .then(() => {
+                    const msg = createMsg(SELF_ADDR, DEFAULT_MTE_ADDR,
+                        0x51, Buffer.from([
+                            0x01, 0x00,
+                        ]));
+                    return this.#exchangeMsg(msg, { noresp: true, timeout: 1000 });
+                })
+                .then(() => {
+                    const msg = createMsg(SELF_ADDR, DEFAULT_MTE_ADDR,
+                        0x47, Buffer.from([
+                            0xff, 0x00,
+                        ]));
+                    return this.#exchangeMsg(msg, { noresp: true, timeout: 1000 });
+                })
+                .then(() => {
+                    const msg = createMsg(SELF_ADDR, DEFAULT_MTE_ADDR,
+                        0x46, Buffer.from([
+                            0xff, 0x01,
+                        ]));
+                    return this.#exchangeMsg(msg, { noresp: true, timeout: 1000 });
+                })
+                .then(() => {
+                    const msg = createMsg(SELF_ADDR, DEFAULT_MTE_ADDR,
+                        0x48, Buffer.from([
+                            0xff,
+                        ]));
+                    return this.#exchangeMsg(msg, { noresp: true, timeout: 1000 });
+                })
+                .then(resolve)
+                .catch(reject);
+        });
+    }
+
+    stopTest(meter) {
+        console.log(`Stop test on meter ${meter}.`);
+
+        const msg = createStopTestMsg(SELF_ADDR, DEFAULT_MTE_ADDR, meter);
+        return new Promise((resolve, reject) => {
+            this.#exchangeMsg(msg, { noresp: true, timeout: 1000 })
+                .then(resolve)
+                .catch(reject);
+        });
+    }
+
+    pollTestResult(meter) {
+        console.log(`Poll test result on meter ${meter}`);
+
+        const msg = createPollTestResultMsg(SELF_ADDR, DEFAULT_MTE_ADDR, meter);
+        return new Promise((resolve, reject) => {
+            this.#exchangeMsg(msg)
+                .then(resp => {
+                    console.log('result:', resp);
+                    resolve(resp);
+                })
+                .catch(reject);
+        });
+    }
+
+    #exchangeMsg(req, options) {
+        if (options === undefined) options = { noresp: false, timeout: 3000 };
+        const { noresp=false, timeout=3000 } = options;
+
         return new Promise((resolve, reject) => {
             const timer = setTimeout(() => {
-                reject(new Error('request timeout'));
+                if (! noresp)
+                    reject(new Error('request timeout'));
+                else
+                    resolve();
             }, timeout);
             this.#receiver.once('message', resp => {
                 console.log('received resp:\n' + dump(resp));
                 clearTimeout(timer);
-                resolve(resp);
+                if (! noresp) resolve(resp);
             });
             console.log('send req:\n' + dump(req));
             this.#client.write(req);

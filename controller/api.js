@@ -33,12 +33,57 @@ exports.getInstantaneous = async function(req, res = response)
 
 exports.updateLoadDef = async function(req, res = response)
 {
+    const loadDef = req.body;
+    console.log('setup load:', loadDef);
+
     try {
-        const loadDef = req.body;
-        console.log('setup load:', loadDef);
         const mte = await createMte();
         const result = await mte.setupLoad(loadDef);
         console.log('result:', result);
+        mte.disconnect();
+        res.json(result);
+    } catch (e) {
+        res.status(500).send(e.stack);
+    }
+};
+
+exports.startTest = async function(req, res = response)
+{
+    const { mindex } = req.params;
+    const param = req.body;
+
+    try {
+        const mte = await createMte();
+        await mte.startTest(mindex, param);
+        mte.disconnect();
+        res.json({ result: 'success' });
+    } catch (e) {
+        res.status(500).send(e.stack);
+    }
+};
+
+exports.stopTest = async function(req, res = response)
+{
+    const { mindex } = req.params;
+    const param = req.body;
+
+    try {
+        const mte = await createMte();
+        await mte.stopTest(mindex);
+        mte.disconnect();
+        res.json({ result: 'success' });
+    } catch (e) {
+        res.status(500).send(e.stack);
+    }
+};
+
+exports.pollTestResult = async function(req, res = response)
+{
+    const { mindex } = req.params;
+
+    try {
+        const mte = await createMte();
+        const result = await mte.pollTestResult(mindex);
         mte.disconnect();
         res.json(result);
     } catch (e) {

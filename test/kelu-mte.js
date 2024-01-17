@@ -9,6 +9,8 @@ const {
     createReadInstantaneousResp,
     createReadRespMsg,
     createAcknowledgeMsg,
+    createPollTestResultRespMsg,
+    createPollTestResultResp,
     DEFAULT_MTE_ADDR,
 } = require('../model/cl3013.js');
 
@@ -16,15 +18,16 @@ const SERVER_PORT = 2404;
 
 /*----------------------------------------------------------------------------*/
 
-function handleConnect(req, socket)
+function handleConnect(req, socket, mte)
 {
     const msg = createConnectRespMsg(req.receiverAddr, req.senderAddr,
         {});
     console.log('send response:\n' + dump(msg));
     socket.write(msg);
+    return mte;
 }
 
-function handleRead(req, socket)
+function handleRead(req, socket, mte)
 {
     /* currently i assume the addr is always [0x02, 0x3d] and
      * data is [0xff, 0x3f, 0xff, 0xff, 0x0f]
@@ -42,17 +45,54 @@ function handleRead(req, socket)
         req.data.addr, resp);
     console.log('send response:\n' + dump(msg));
     socket.write(msg);
+    return mte;
 }
 
-function handleWrite(req, socket)
+function handleWrite(req, socket, mte)
 {
     const msg = createAcknowledgeMsg(req.receiverAddr, req.senderAddr,
         true);
     console.log('send response:\n', dump(msg));
     socket.write(msg);
+    return mte;
+}
+
+function handleStartTest(req, socket, mte)
+{
+    console.log('got message for starting a test:', req.data);
+    return Object.assign({}, mte, {
+        test: { startTime: new Date() },
+    });
+}
+
+function handleStopTest(req, socket, mte)
+{
+    console.log('got message for stopping a test:', req.data);
+    if (! mte.test)
+        console.log('no test started!');
+    return { test: null };
+}
+
+function handlePollTestResult(req, socket, mte)
+{
+    console.log('got message for polling test result:', req.data);
+    if (! mte.test || ! mte.test.startTime) {
+        console.log('no test started');
+        return mte;
+    }
+    const meter = req.data[0];
+    const t = new Date() - mte.test.startTime;
+    const seqno = (t / 1000) % 3;
+    const msg = createPollTestResultRespMsg(req.receiverAddr, req.senderAddr,
+        meter, parseInt(t / 3000), createPollTestResultResp(.15e-4));
+    console.log('send response:\n', dump(msg));
+    socket.write(msg);
+    return mte;
 }
 
 /*----------------------------------------------------------------------------*/
+
+var mteConnection = {};
 
 class Server {
     #client;
@@ -80,13 +120,17 @@ class Server {
             201: handleConnect,
             160: handleRead,
             163: handleWrite,
+            72: handleStartTest,
+            73: handleStopTest,
+            52: handlePollTestResult,
         };
 
         var handlered = false;
         for (const [cmd, handler] of Object.entries(reqCmdHandlers)) {
             if (cmd == msg.cmd) {
                 console.log(`found command handler for ${msg.cmd}`);
-                handler(msg, this.#client);
+                mteConnection = handler(msg, this.#client,
+                    mteConnection);
                 handlered = true;
                 break;
             }
