@@ -80,7 +80,7 @@ function handlePollTestResult(req, socket, mte)
         console.log('no test started');
         return mte;
     }
-    const meter = req.data[0];
+    const meter = req.data.meter;
     const t = new Date() - mte.test.startTime;
     const seqno = (t / 1000) % 3;
     const msg = createPollTestResultRespMsg(req.receiverAddr, req.senderAddr,

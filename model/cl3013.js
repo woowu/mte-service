@@ -228,7 +228,7 @@ function parsePollTestResultReqResp(data)
         return {
             meter: data[4],
             seqno: data[5],
-            measError: data.slice(0, 4),
+            measError: .123e-4,
         };
     else
         return {
