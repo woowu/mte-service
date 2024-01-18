@@ -12,6 +12,7 @@ const {
     createPollTestResultRespMsg,
     createPollTestResultResp,
     DEFAULT_MTE_ADDR,
+    DEFAULT_STANDARD_METER_ADDR,
 } = require('../model/cl3013.js');
 
 const SERVER_PORT = 2404;
@@ -100,7 +101,8 @@ class Server {
 
     constructor(client) {
         this.#client = client;
-        this.#receiver = new MessageReceiver(client, DEFAULT_MTE_ADDR);
+        this.#receiver = new MessageReceiver(client,
+            [DEFAULT_MTE_ADDR, DEFAULT_STANDARD_METER_ADDR]);
     }
 
     start() {

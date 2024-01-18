@@ -28,6 +28,7 @@ const objectAddress = {
 
 exports.objectAddress = objectAddress;
 exports.DEFAULT_MTE_ADDR = 1;
+exports.DEFAULT_STANDARD_METER_ADDR = 16;
 
 /*----------------------------------------------------------------------------*/
 
@@ -312,7 +313,10 @@ exports.MessageReceiver = class MessageReceiver extends EventEmitter {
     constructor(socket, receiverAddr) {
         super();
         this.#socket = socket;
-        this.#receiverAddr = receiverAddr;
+        if (Array.isArray(receiverAddr))
+            this.#receiverAddr = receiverAddr;
+        else
+            this.#receiverAddr = [receiverAddr];
     }
 
     start() {
@@ -340,9 +344,8 @@ exports.MessageReceiver = class MessageReceiver extends EventEmitter {
         if (msg[msg.length - 1] !=
             calcMsgChecksum(msg.slice(0, msg.length - 1)))
             console.log('message checksum error');
-        else if (msg[1] != this.#receiverAddr)
-            console.log(`receiver adddress mismatch: ${msg[1]},`
-                + ` expect ${this.#receiverAddr}`);
+        else if (! this.#receiverAddr.includes(msg[1]))
+            console.log(`receiver address mismatch: ${msg[1]}`);
         else
             super.emit('message', parseMessage(Buffer.from(msg)));
 

@@ -13,6 +13,7 @@ const {
     createPollTestResultMsg,
     objectAddress,
     DEFAULT_MTE_ADDR,
+    DEFAULT_STANDARD_METER_ADDR,
 } = require('../model/cl3013.js');
 
 const SELF_ADDR = 6;
@@ -91,7 +92,7 @@ class Mte {
         /* We don't know the meanings of the messages so far.
          */
         return new Promise((resolve, reject) => {
-            const msg = createMsg(SELF_ADDR, DEFAULT_MTE_ADDR,
+            const msg = createMsg(SELF_ADDR, DEFAULT_STANDARD_METER_ADDR,
                 0x32, Buffer.from([
                     0x00, 0x00, 0x00, 0x03, 0xe8, 0x00, 0x00, 0x00,
                     0x18, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -142,7 +143,8 @@ class Mte {
     stopTest(meter) {
         console.log(`Stop test on meter ${meter}.`);
 
-        const msg = createStopTestMsg(SELF_ADDR, DEFAULT_MTE_ADDR, meter);
+        const msg = createStopTestMsg(SELF_ADDR, DEFAULT_STANDARD_METER_ADDR,
+            meter);
         return new Promise((resolve, reject) => {
             this.#exchangeMsg(msg, { noresp: true, timeout: 1000 })
                 .then(resolve)
@@ -153,7 +155,8 @@ class Mte {
     pollTestResult(meter) {
         console.log(`Poll test result on meter ${meter}`);
 
-        const msg = createPollTestResultMsg(SELF_ADDR, DEFAULT_MTE_ADDR, meter);
+        const msg = createPollTestResultMsg(SELF_ADDR,
+            DEFAULT_STANDARD_METER_ADDR, meter);
         return new Promise((resolve, reject) => {
             this.#exchangeMsg(msg)
                 .then(resp => {
@@ -178,7 +181,10 @@ class Mte {
             this.#receiver.once('message', resp => {
                 console.log('received resp:\n' + dump(resp));
                 clearTimeout(timer);
-                if (! noresp) resolve(resp);
+                if (! noresp)
+                    resolve(resp);
+                else
+                    resolve();
             });
             console.log('send req:\n' + dump(req));
             this.#client.write(req);
