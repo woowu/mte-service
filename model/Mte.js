@@ -22,7 +22,10 @@ class Mte {
     #client;
     #receiver;
 
-    connect(host, port) {
+    connect(host, port, option) {
+        if (option === undefined) option = {};
+        const { noConnectReq = false } = option;
+
         this.#client = new net.Socket();
 
         this.#client.on('close', () => {
@@ -42,6 +45,11 @@ class Mte {
                 console.log('mte socket connected');
                 this.#receiver = new MessageReceiver(this.#client, SELF_ADDR);
                 this.#receiver.start();
+
+                if (noConnectReq) {
+                    resolve({});
+                    return;
+                }
                 this.#exchangeMsg(createConnectMsg(SELF_ADDR, DEFAULT_MTE_ADDR))
                     .then(resp => {
                         resolve(resp);
@@ -101,35 +109,35 @@ class Mte {
                 ]));
             this.#exchangeMsg(msg, { noresp: true, timeout: 1000 })
                 .then(() => {
-                    const msg = createMsg(SELF_ADDR, DEFAULT_MTE_ADDR,
+                    const msg = createMsg(SELF_ADDR, DEFAULT_STANDARD_METER_ADDR,
                         0x31, Buffer.from([
                             0x00, 0xbe, 0xbc, 0x20, 0x00, 0x01,
                         ]));
                     return this.#exchangeMsg(msg, { noresp: true, timeout: 1000 });
                 })
                 .then(() => {
-                    const msg = createMsg(SELF_ADDR, DEFAULT_MTE_ADDR,
+                    const msg = createMsg(SELF_ADDR, DEFAULT_STANDARD_METER_ADDR,
                         0x51, Buffer.from([
                             0x01, 0x00,
                         ]));
                     return this.#exchangeMsg(msg, { noresp: true, timeout: 1000 });
                 })
                 .then(() => {
-                    const msg = createMsg(SELF_ADDR, DEFAULT_MTE_ADDR,
+                    const msg = createMsg(SELF_ADDR, DEFAULT_STANDARD_METER_ADDR,
                         0x47, Buffer.from([
                             0xff, 0x00,
                         ]));
                     return this.#exchangeMsg(msg, { noresp: true, timeout: 1000 });
                 })
                 .then(() => {
-                    const msg = createMsg(SELF_ADDR, DEFAULT_MTE_ADDR,
+                    const msg = createMsg(SELF_ADDR, DEFAULT_STANDARD_METER_ADDR,
                         0x46, Buffer.from([
                             0xff, 0x01,
                         ]));
                     return this.#exchangeMsg(msg, { noresp: true, timeout: 1000 });
                 })
                 .then(() => {
-                    const msg = createMsg(SELF_ADDR, DEFAULT_MTE_ADDR,
+                    const msg = createMsg(SELF_ADDR, DEFAULT_STANDARD_METER_ADDR,
                         0x48, Buffer.from([
                             0xff,
                         ]));

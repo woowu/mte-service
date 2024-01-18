@@ -8,11 +8,10 @@ var mteConfig = {
     port: 2404,
 };
 
-async function createMte()
+async function createMte(option)
 {
     const mte = new Mte();
-    const devInfo = await mte.connect(
-        mteConfig.host, mteConfig.port);
+    const devInfo = await mte.connect(mteConfig.host, mteConfig.port, option);
     console.log('device info', devInfo);
     return mte;
 }
@@ -82,7 +81,7 @@ exports.pollTestResult = async function(req, res = response)
     const { mindex } = req.params;
 
     try {
-        const mte = await createMte();
+        const mte = await createMte({ noConnectReq: true });
         const result = await mte.pollTestResult(mindex);
         mte.disconnect();
         res.json(result);
