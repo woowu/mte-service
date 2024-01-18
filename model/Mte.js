@@ -158,7 +158,7 @@ class Mte {
             this.#exchangeMsg(msg)
                 .then(resp => {
                     console.log('result:', resp);
-                    resolve(resp);
+                    resolve(resp.data);
                 })
                 .catch(reject);
         });

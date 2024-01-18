@@ -84,7 +84,7 @@ function handlePollTestResult(req, socket, mte)
     const t = new Date() - mte.test.startTime;
     const seqno = (t / 1000) % 3;
     const msg = createPollTestResultRespMsg(req.receiverAddr, req.senderAddr,
-        meter, parseInt(t / 3000), createPollTestResultResp(.15e-4));
+        meter, parseInt(t / 3000), createPollTestResultResp(.5e-2));
     console.log('send response:\n', dump(msg));
     socket.write(msg);
     return mte;

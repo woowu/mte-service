@@ -32,13 +32,6 @@ exports.DEFAULT_MTE_ADDR = 1;
 /*----------------------------------------------------------------------------*/
 
 /**
- * @param msg a buffer of message excluding the ending 'checksum' byte.
- */
-function calcMsgChecksum(msg) {
-    return msg.slice(1, msg.length).reduce((sum, c) => sum ^ c);
-}
-
-/**
  * @param m significant of 32-bit integer
  * @param n exponent from -128 to 127
  * @return A 5-octet buffer representing a Int4e1 number which is
@@ -102,6 +95,40 @@ function int4e1ToFloat(n, e=0)
     return n[0] * Math.pow(10, n[1] - e);
 }
 
+function parseMeasError(buf)
+{
+    const sig = buf[0] & 0x80;
+    var error = 0;
+
+    for (const c of buf.slice(1))
+        error = error * 256 + c;
+    if (sig) error *= -1;
+    return error * 1e-7;
+}
+
+/**
+ * @param error a ratio of error
+ */
+function encodeMeasError(error)
+{
+    const buf = new Array(4);
+    buf[0] = error < 0 ? (128 + 5) : 5;
+    error = parseInt(error * 1e7);
+    for (var i = 3; i > 0; --i) {
+        buf[i] = error % 256;
+        error /= 256;
+    }
+    return Buffer.from(buf);
+}
+
+/*----------------------------------------------------------------------------*/
+
+/**
+ * @param msg a buffer of message excluding the ending 'checksum' byte.
+ */
+function calcMsgChecksum(msg) {
+    return msg.slice(1, msg.length).reduce((sum, c) => sum ^ c);
+}
 
 /**
  * @param msg message of upper layer
@@ -228,7 +255,7 @@ function parsePollTestResultReqResp(data)
         return {
             meter: data[4],
             seqno: data[5],
-            measError: .123e-4,
+            measError: parseMeasError(data.slice(0, 4)),
         };
     else
         return {
@@ -605,5 +632,5 @@ exports.createSetupLoadData = function(loadDef) {
 };
 
 exports.createPollTestResultResp = function(measError) {
-    return Buffer.alloc(4);
+    return encodeMeasError(measError);
 }
